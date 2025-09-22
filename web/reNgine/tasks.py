@@ -1251,7 +1251,7 @@ def screenshot(self, ctx={}, description=None):
 
 @app.task(name='port_scan', queue='main_scan_queue', base=RengineTask, bind=True)
 def port_scan(self, hosts=[], ctx={}, description=None):
-    """Run port scan.
+	"""Run port scan.
 
 	Args:
 		hosts (list, optional): Hosts to run port scan on.
@@ -1260,173 +1260,313 @@ def port_scan(self, hosts=[], ctx={}, description=None):
 	Returns:
 		list: List of open ports (dict).
 	"""
-    input_file = f'{self.results_dir}/input_subdomains_port_scan.txt'
-    proxy = get_random_proxy()
+	input_file = f'{self.results_dir}/input_subdomains_port_scan.txt'
+	output_file_xml = f'{self.results_dir}/rustscan_results.xml'
+	output_file_json = f'{self.results_dir}/rustscan_results.json'
+	proxy = get_random_proxy()
 
-    # Config
-    config = self.yaml_configuration.get(PORT_SCAN) or {}
-    enable_http_crawl = config.get(ENABLE_HTTP_CRAWL, DEFAULT_ENABLE_HTTP_CRAWL)
-    timeout = config.get(TIMEOUT) or self.yaml_configuration.get(TIMEOUT, DEFAULT_HTTP_TIMEOUT)
-    exclude_ports = config.get(NAABU_EXCLUDE_PORTS, [])
-    exclude_subdomains = config.get(NAABU_EXCLUDE_SUBDOMAINS, False)
-    ports = config.get(PORTS, NAABU_DEFAULT_PORTS)
-    ports = [str(port) for port in ports]
-    rate_limit = config.get(NAABU_RATE) or self.yaml_configuration.get(RATE_LIMIT, DEFAULT_RATE_LIMIT)
-    threads = config.get(THREADS) or self.yaml_configuration.get(THREADS, DEFAULT_THREADS)
-    passive = config.get(NAABU_PASSIVE, False)
-    use_naabu_config = config.get(USE_NAABU_CONFIG, False)
-    exclude_ports_str = ','.join(return_iterable(exclude_ports))
-    # nmap args
-    nmap_enabled = config.get(ENABLE_NMAP, False)
-    nmap_cmd = config.get(NMAP_COMMAND, '')
-    nmap_script = config.get(NMAP_SCRIPT, '')
-    nmap_script = ','.join(return_iterable(nmap_script))
-    nmap_script_args = config.get(NMAP_SCRIPT_ARGS)
+	# Config
+	config = self.yaml_configuration.get(PORT_SCAN) or {}
+	enable_http_crawl = config.get(ENABLE_HTTP_CRAWL, DEFAULT_ENABLE_HTTP_CRAWL)
+	timeout = config.get(TIMEOUT) or self.yaml_configuration.get(TIMEOUT, DEFAULT_HTTP_TIMEOUT)
+	exclude_ports = config.get(NAABU_EXCLUDE_PORTS, [])
+	exclude_subdomains = config.get(NAABU_EXCLUDE_SUBDOMAINS, False)
+	ports = config.get(PORTS, NAABU_DEFAULT_PORTS)
+	ports = [str(port) for port in ports]
+	rate_limit = config.get(NAABU_RATE) or self.yaml_configuration.get(RATE_LIMIT, DEFAULT_RATE_LIMIT)
+	threads = config.get(THREADS) or self.yaml_configuration.get(THREADS, DEFAULT_THREADS)
+	passive = config.get(NAABU_PASSIVE, False)
+	use_naabu_config = config.get(USE_NAABU_CONFIG, False)
+	exclude_ports_str = ','.join(return_iterable(exclude_ports))
+	# nmap args
+	nmap_enabled = config.get(ENABLE_NMAP, False)
+	nmap_cmd = config.get(NMAP_COMMAND, '')
+	nmap_script = config.get(NMAP_SCRIPT, '')
+	nmap_script = ','.join(return_iterable(nmap_script))
+	nmap_script_args = config.get(NMAP_SCRIPT_ARGS)
 
-    if hosts:
-        with open(input_file, 'w') as f:
-            f.write('\n'.join(hosts))
-    else:
-        hosts = get_subdomains(
-            write_filepath=input_file,
-            exclude_subdomains=exclude_subdomains,
-            ctx=ctx)
+	if hosts:
+		with open(input_file, 'w') as f:
+			f.write('\n'.join(hosts))
+	else:
+		hosts = get_subdomains(
+			write_filepath=input_file,
+			exclude_subdomains=exclude_subdomains,
+			ctx=ctx)
 
-    # Build cmd
-    cmd = 'naabu -json -exclude-cdn'
-    cmd += f' -list {input_file}' if len(hosts) > 0 else f' -host {hosts[0]}'
-    if 'full' in ports or 'all' in ports:
-        ports_str = ' -p "-"'
-    elif 'top-100' in ports:
-        ports_str = ' -top-ports 100'
-    elif 'top-1000' in ports:
-        ports_str = ' -top-ports 1000'
-    else:
-        ports_str = ','.join(ports)
-        ports_str = f' -p {ports_str}'
-    cmd += ports_str
-    cmd += ' -config /root/.config/naabu/config.yaml' if use_naabu_config else ''
-    cmd += f' -proxy "{proxy}"' if proxy else ''
-    cmd += f' -c {threads}' if threads else ''
-    cmd += f' -rate {rate_limit}' if rate_limit > 0 else ''
-    cmd += f' -timeout {timeout * 1000}' if timeout > 0 else ''
-    cmd += f' -passive' if passive else ''
-    cmd += f' -exclude-ports {exclude_ports_str}' if exclude_ports else ''
-    cmd += f' -silent'
+	# Build cmd
+	# cmd = 'naabu -json -exclude-cdn'
+	# cmd += f' -list {input_file}' if len(hosts) > 0 else f' -host {hosts[0]}'
+	# if 'full' in ports or 'all' in ports:
+	# 	ports_str = ' -p "-"'
+	# elif 'top-100' in ports:
+	# 	ports_str = ' -top-ports 100'
+	# elif 'top-1000' in ports:
+	# 	ports_str = ' -top-ports 1000'
+	# else:
+	# 	ports_str = ','.join(ports)
+	# 	ports_str = f' -p {ports_str}'
+	# cmd += ports_str
+	# cmd += ' -config /root/.config/naabu/config.yaml' if use_naabu_config else ''
+	# cmd += f' -proxy "{proxy}"' if proxy else ''
+	# cmd += f' -c {threads}' if threads else ''
+	# cmd += f' -rate {rate_limit}' if rate_limit > 0 else ''
+	# cmd += f' -timeout {timeout*1000}' if timeout > 0 else ''
+	# cmd += f' -passive' if passive else ''
+	# cmd += f' -exclude-ports {exclude_ports_str}' if exclude_ports else ''
+	# cmd += f' -silent'
+	cmd = 'rustscan --no-banner'
+	cmd += f' -t 2000 -b 2000 --tries 3'
+	cmd += f' -a {input_file}' if len(hosts) > 0 else f' -a {hosts[0]}'
+	if 'full' in ports or 'all' in ports:
+		ports_str = ' -r 1-65535'
+	elif 'top-100' in ports:
+		ports_str = ' --top'
+	elif 'top-1000' in ports:
+		ports_str = ' --top'
+	else:
+		ports_str = ','.join(ports)
+		ports_str = f' -p {ports_str}'
+	cmd += ports_str
+	# cmd += f' -r 1-65535'
+	cmd += f' -- -sC -sV -Pn -T4 -oX {output_file_xml}'  # nmap args
+	# Execute cmd and gather results
+	results = []
+	urls = []
+	ports_data = {}
 
-    # Execute cmd and gather results
-    results = []
-    urls = []
-    ports_data = {}
-    for line in stream_command(
-            cmd,
-            shell=True,
-            history_file=self.history_file,
-            scan_id=self.scan_id,
-            activity_id=self.activity_id):
+	run_command(
+			cmd,
+			shell=True,
+			history_file=self.history_file,
+			scan_id=self.scan_id,
+			activity_id=self.activity_id
+	)
 
-        if not isinstance(line, dict):
-            continue
-        results.append(line)
-        port_number = line['port']
-        ip_address = line['ip']
-        host = line.get('host') or ip_address
-        if port_number == 0:
-            continue
+	# Parse XML results
+	with open(output_file_xml, encoding='utf8') as f:
+		content = f.read()
+		if not content.strip():  # Check if XML content is empty
+				logger.warning('Nmap XML output is empty. Skipping.')
+				return ports_data
+		try:
+			nmap_results = xmltodict.parse(content) # parse XML to dict
+		except Exception as e:
+			logger.exception(e)
+			logger.error(f'Cannot parse {output_file_xml} to valid JSON. Skipping.')
+			return []
 
-        # Grab subdomain
-        subdomain = Subdomain.objects.filter(
-            name=host,
-            target_domain=self.domain,
-            scan_history=self.scan
-        ).first()
+	# Write JSON to output file
+	if output_file_json:
+		with open(output_file_json, 'w') as f:
+			json.dump(nmap_results, f, indent=4)
+	logger.warning(json.dumps(nmap_results, indent=4))
 
-        # Add IP DB
-        ip, _ = save_ip_address(ip_address, subdomain, subscan=self.subscan)
-        if self.subscan:
-            ip.ip_subscan_ids.add(self.subscan)
-            ip.save()
+	# Process Nmap JSON results
+	try:
+		host_data = nmap_results.get('nmaprun', {}).get('host', {})
+		if not isinstance(host_data, list):
+			host_data = [host_data]  # Ensure host_data is a list
+		for host in host_data:
+			ip_address = host.get('address', {}).get('@addr', '')
+			if not ip_address:
+				continue
+			host_name = ip_address  # Use IP as host if no hostname
+			ports = host.get('ports', {}).get('port', [])
+			if not isinstance(ports, list):
+				ports = [ports]  # Ensure ports is a list
 
-        # Add endpoint to DB
-        # port 80 and 443 not needed as http crawl already does that.
-        if port_number not in [80, 443]:
-            http_url = f'{host}:{port_number}'
-            endpoint, _ = save_endpoint(
-                http_url,
-                crawl=enable_http_crawl,
-                ctx=ctx,
-                subdomain=subdomain)
-            if endpoint:
-                http_url = endpoint.http_url
-            urls.append(http_url)
+			for port_data in ports:
+				if port_data.get('state', {}).get('@state') != 'open':
+					continue
+				port_number = int(port_data.get('@portid', '0'))
+				if port_number == 0:
+					continue
+				service = port_data.get('service', {}).get('@name', '')
 
-        # Add Port in DB
-        port_details = whatportis.get_ports(str(port_number))
-        service_name = port_details[0].name if len(port_details) > 0 else 'unknown'
-        description = port_details[0].description if len(port_details) > 0 else ''
+				result = {
+					'ip': ip_address,
+					'port': port_number,
+					'host': host_name,
+					'service': service
+				}
+				results.append(result)
+				if host_name in ports_data:
+					ports_data[host_name].append(port_number)
+				else:
+					ports_data[host_name] = [port_number]
+	except Exception as e:
+		logger.exception(e)
+		logger.error('Error processing Nmap JSON results. Skipping.')
+		return ports_data
 
-        # get or create port
-        port, created = Port.objects.get_or_create(
-            number=port_number,
-            service_name=service_name,
-            description=description
-        )
-        if port_number in UNCOMMON_WEB_PORTS:
-            port.is_uncommon = True
-            port.save()
-        ip.ports.add(port)
-        ip.save()
-        if host in ports_data:
-            ports_data[host].append(port_number)
-        else:
-            ports_data[host] = [port_number]
+	# Process results
+	for result in results:
+		ip_address = result['ip']
+		port_number = result['port']
+		host = result['host']
+		service = result['service']
 
-        # Send notification
-        logger.warning(f'Found opened port {port_number} on {ip_address} ({host})')
+		# Grab subdomain
+		try:
+			subdomain = Subdomain.objects.filter(
+				name=host,
+				target_domain=self.domain,
+				scan_history=self.scan
+			).first()
+		except ObjectDoesNotExist:
+			subdomain = None
 
-    if len(ports_data) == 0:
-        logger.info('Finished running naabu port scan - No open ports found.')
-        if nmap_enabled:
-            logger.info('Nmap scans skipped')
-        return ports_data
+		# Add IP to DB
+		ip, _ = save_ip_address(ip_address, subdomain, subscan=self.subscan)
+		if self.subscan:
+			ip.ip_subscan_ids.add(self.subscan)
+			ip.save()
 
-    # Send notification
-    fields_str = ''
-    for host, ports in ports_data.items():
-        ports_str = ', '.join([f'`{port}`' for port in ports])
-        fields_str += f'• `{host}`: {ports_str}\n'
-    self.notify(fields={'Ports discovered': fields_str})
+		# Add endpoint to DB
+		if port_number not in [80, 443]:
+			http_url = f'{host}:{port_number}'
+			endpoint, _ = save_endpoint(
+				http_url,
+				crawl=enable_http_crawl,
+				ctx=ctx,
+				subdomain=subdomain)
+			if endpoint:
+				http_url = endpoint.http_url
+			urls.append(http_url)
 
-    # Save output to file
-    with open(self.output_path, 'w') as f:
-        json.dump(results, f, indent=4)
+		# Add Port in DB
+		res = get_port_service_description(port_number)
+		service_name = service or res.get('service_name', '')  # Prefer Nmap service
+		port, created = update_or_create_port(
+			port_number=port_number,
+			service_name=service_name,
+			description=res.get('description', '')
+		)
 
-    logger.info('Finished running naabu port scan.')
+		if created:
+			logger.warning(f'Added new port {port_number} to DB')
 
-    # Process nmap results: 1 process per host
-    sigs = []
-    if nmap_enabled:
-        logger.warning(f'Starting nmap scans ...')
-        logger.warning(ports_data)
-        for host, port_list in ports_data.items():
-            ports_str = '_'.join([str(p) for p in port_list])
-            ctx_nmap = ctx.copy()
-            ctx_nmap['description'] = get_task_title(f'nmap_{host}', self.scan_id, self.subscan_id)
-            ctx_nmap['track'] = False
-            sig = nmap.si(
-                cmd=nmap_cmd,
-                ports=port_list,
-                host=host,
-                script=nmap_script,
-                script_args=nmap_script_args,
-                max_rate=rate_limit,
-                ctx=ctx_nmap)
-            sigs.append(sig)
-        task = group(sigs).apply_async()
-        with allow_join_result():
-            results = task.get()
+		if port_number in UNCOMMON_WEB_PORTS:
+			port.is_uncommon = True
+			port.save()
+		ip.ports.add(port)
+		ip.save()
 
-    return ports_data
+		# Send notification
+		logger.warning(f'Found opened port {port_number} on {ip_address} ({host})')
+
+	# for line in stream_command(	
+	# 		cmd,
+	# 		shell=True,
+	# 		history_file=self.history_file,
+	# 		scan_id=self.scan_id,
+	# 		activity_id=self.activity_id):
+
+	# 	if not isinstance(line, dict):
+	# 		continue
+	# 	results.append(line)
+	# 	port_number = line['port']
+	# 	ip_address = line['ip']
+	# 	host = line.get('host') or ip_address
+	# 	if port_number == 0:
+	# 		continue
+
+	# 	# Grab subdomain
+	# 	subdomain = Subdomain.objects.filter(
+	# 		name=host,
+	# 		target_domain=self.domain,
+	# 		scan_history=self.scan
+	# 	).first()
+
+	# 	# Add IP DB
+	# 	ip, _ = save_ip_address(ip_address, subdomain, subscan=self.subscan)
+	# 	if self.subscan:
+	# 		ip.ip_subscan_ids.add(self.subscan)
+	# 		ip.save()
+
+	# 	# Add endpoint to DB
+	# 	# port 80 and 443 not needed as http crawl already does that.
+	# 	if port_number not in [80, 443]:
+	# 		http_url = f'{host}:{port_number}'
+	# 		endpoint, _ = save_endpoint(
+	# 			http_url,
+	# 			crawl=enable_http_crawl,
+	# 			ctx=ctx,
+	# 			subdomain=subdomain)
+	# 		if endpoint:
+	# 			http_url = endpoint.http_url
+	# 		urls.append(http_url)
+
+	# 	# Add Port in DB
+	# 	res = get_port_service_description(port_number)
+	# 	# get or create port
+	# 	port, created = update_or_create_port(
+	# 		port_number=port_number,
+	# 		service_name=res.get('service_name', ''),
+	# 		description=res.get('description', '')
+	# 	)
+
+	# 	if created:
+	# 		logger.warning(f'Added new port {port_number} to DB')
+
+	# 	if port_number in UNCOMMON_WEB_PORTS:
+	# 		port.is_uncommon = True
+	# 		port.save()
+	# 	ip.ports.add(port)
+	# 	ip.save()
+	# 	if host in ports_data:
+	# 		ports_data[host].append(port_number)
+	# 	else:
+	# 		ports_data[host] = [port_number]
+
+	# 	# Send notification
+		# logger.warning(f'Found opened port {port_number} on {ip_address} ({host})')
+
+	if len(ports_data) == 0:
+		# logger.info('Finished running naabu port scan - No open ports found.')
+		logger.info('Finished running rustScan port scan - No open ports found.')
+		if nmap_enabled:
+			logger.info('Nmap scans skipped')
+		return ports_data
+
+	# Send notification
+	fields_str = ''
+	for host, ports in ports_data.items():
+		ports_str = ', '.join([f'`{port}`' for port in ports])
+		fields_str += f'• `{host}`: {ports_str}\n'
+	self.notify(fields={'Ports discovered': fields_str})
+
+	# Save output to file
+	with open(self.output_path, 'w') as f:
+		json.dump(results, f, indent=4)
+
+	logger.info('Finished running naabu port scan.')
+
+	# Process nmap results: 1 process per host
+	sigs = []
+	if nmap_enabled:
+		logger.warning(f'Starting nmap scans ...')
+		logger.warning(ports_data)
+		for host, port_list in ports_data.items():
+			ports_str = '_'.join([str(p) for p in port_list])
+			ctx_nmap = ctx.copy()
+			ctx_nmap['description'] = get_task_title(f'nmap_{host}', self.scan_id, self.subscan_id)
+			ctx_nmap['track'] = False
+			sig = nmap.si(
+				cmd=nmap_cmd,
+				ports=port_list,
+				host=host,
+				script=nmap_script,
+				script_args=nmap_script_args,
+				max_rate=rate_limit,
+				ctx=ctx_nmap)
+			sigs.append(sig)
+		task = group(sigs).apply_async()
+		with allow_join_result():
+			results = task.get()
+
+	return ports_data
 
 
 @app.task(name='nmap', queue='main_scan_queue', base=RengineTask, bind=True)

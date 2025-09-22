@@ -122,8 +122,11 @@ then
   mkdir /usr/src/scan_results
 fi
 
+# install rustscan
+cargo install rustscan
+
 # test tools, required for configuration
-naabu && subfinder && amass
+rustscan && subfinder && amass
 nuclei
 
 if [ ! -d "/root/nuclei-templates/geeknik_nuclei_templates" ];
