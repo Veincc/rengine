@@ -56,10 +56,6 @@ urlpatterns = [
         '<slug:slug>/tool_arsenal',
         views.tool_arsenal_section,
         name='tool_arsenal'),
-	path(
-        '<slug:slug>/llm_toolkit',
-        views.llm_toolkit_section,
-        name='llm_toolkit'),
     path(
         '<slug:slug>/rengine_settings',
         views.rengine_settings,
@@ -73,16 +69,7 @@ urlpatterns = [
         views.proxy_settings,
         name='proxy_settings'),
     path(
-        '<slug:slug>/hackerone_settings',
-        views.hackerone_settings,
-        name='hackerone_settings'),
-    path(
         '<slug:slug>/report_settings',
         views.report_settings,
         name='report_settings'),
-    path(
-        '<slug:slug>/testHackerone/',
-        views.test_hackerone,
-        name='testHackerone'
-    ),
 ]

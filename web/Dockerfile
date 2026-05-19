@@ -4,9 +4,9 @@ FROM ubuntu:22.04
 ARG GECKOVERSION=0.33.0
 ARG GOVERSION=1.21.5
 
-RUN ARCH=$(dpkg --print-architecture) \ 
-    && if [ "${ARCH}" ! "arm64" ] || [ "${ARCH}" ! "amd64" ]; then \
-      echo "reNgine not supported, encountered unknown architecture: ${TARGETPLATFORM}" \
+RUN ARCH=$(dpkg --print-architecture) \
+    && if [ "${ARCH}" != "arm64" ] && [ "${ARCH}" != "amd64" ]; then \
+      echo "reNgine not supported, encountered unknown architecture: ${ARCH}" \
       && exit 1; \
     fi
 
@@ -46,6 +46,9 @@ RUN apt install -y --no-install-recommends \
     libpcap-dev \
     netcat \
     nmap \
+    ruby \
+    ruby-dev \
+    libyaml-dev \
     x11-utils \
     xvfb \
     wget \
@@ -54,6 +57,18 @@ RUN apt install -y --no-install-recommends \
     software-properties-common
 
 RUN add-apt-repository ppa:mozillateam/ppa
+
+RUN echo '\
+Package: *\n\
+Pin: release o=LP-PPA-mozillateam\n\
+Pin-Priority: 1001\n\
+\n\
+Package: firefox\n\
+Pin: version 1:1snap1-0ubuntu2\n\
+Pin-Priority: -1\n\
+' > /etc/apt/preferences.d/mozilla-firefox && \
+    apt update -y && \
+    apt install -y --no-install-recommends firefox
 
 RUN ARCH=$(dpkg --print-architecture) \ 
     && curl -L https://go.dev/dl/go${GOVERSION}.linux-${ARCH}.tar.gz | tar -xzC /usr/local
@@ -69,43 +84,24 @@ RUN ARCH=$(dpkg --print-architecture) \
     && rm ${GECKOPATH} \
     && mv geckodriver /usr/bin
 
-# Install Rust for orjson
-RUN set -e; curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-ENV PATH="/root/.cargo/bin:${PATH}"
-RUN pip3 install maturin
-
 # Make directory for app
 WORKDIR /usr/src/app
 
-ENV GO111MODULE=on 
+# Install Go tools (core only)
+ENV GO111MODULE=on
 RUN printf "\
-    github.com/jaeles-project/gospider@latest\n\
-    github.com/tomnomnom/gf@latest\n\
-    github.com/tomnomnom/unfurl@latest\n\
-    github.com/tomnomnom/waybackurls@latest\n\
     github.com/projectdiscovery/httpx/cmd/httpx@latest\n\
-    github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest\n\
-    github.com/projectdiscovery/chaos-client/cmd/chaos@latest\n\
     github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest\n\
     github.com/projectdiscovery/naabu/v2/cmd/naabu@latest\n\
-    github.com/hakluke/hakrawler@latest\n\
-    github.com/lc/gau/v2/cmd/gau@latest\n\
-    github.com/owasp-amass/amass/v3/...@latest\n\
     github.com/ffuf/ffuf@latest\n\
-    github.com/projectdiscovery/tlsx/cmd/tlsx@latest\n\
-    github.com/hahwul/dalfox/v2@latest\n\
     github.com/projectdiscovery/katana/cmd/katana@latest\n\
-    github.com/dwisiswant0/crlfuzz/cmd/crlfuzz@latest\n\
-    github.com/sa7mon/s3scanner@latest\n" | \
+    github.com/lc/gau/v2/cmd/gau@latest\n\
+    github.com/tomnomnom/unfurl@latest\n" | \
     xargs -L1 go install -ldflags="-s -w" -v && \
     rm -rf /go/pkg/* && rm -rf /root/.cache/go-build
 
-
 # Update Nuclei and Nuclei-Templates
 RUN nuclei -update-templates
-
-# update chaos
-RUN chaos -update
 
 # Copy requirements
 COPY ./requirements.txt /tmp/requirements.txt
@@ -118,6 +114,23 @@ RUN pip3 install --no-cache-dir fuzzywuzzy \
     python-Levenshtein \
     pyvirtualdisplay \
     netaddr
+
+# Clone subdomain tools
+RUN git clone https://github.com/aboul3la/Sublist3r /usr/src/github/Sublist3r && \
+    pip install -q -r /usr/src/github/Sublist3r/requirements.txt
+RUN git clone https://github.com/shmilylty/OneForAll /usr/src/github/OneForAll && \
+    pip install -q -r /usr/src/github/OneForAll/requirements.txt
+
+# Clone and install WhatWeb
+RUN git clone https://github.com/urbanadventurer/WhatWeb /usr/src/github/WhatWeb && \
+    cd /usr/src/github/WhatWeb && gem install bundler && bundle install
+
+# Clone CMSeeK
+RUN git clone https://github.com/Tuhinshubhra/CMSeeK /usr/src/github/CMSeeK && \
+    pip install -q -r /usr/src/github/CMSeeK/requirements.txt
+
+# Clone EyeWitness
+RUN git clone https://github.com/FortyNorthSecurity/EyeWitness /usr/src/github/EyeWitness
 
 # Copy source code
 COPY . /usr/src/app/

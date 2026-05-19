@@ -38,15 +38,6 @@ Update Target   {{ form.name.value }}
               {{ form.description }}
             </div>
           </div>
-          {% if user_preferences.bug_bounty_mode %}
-          <div class="col-12">
-            <label for="domainDescription" class="form-label">HackerOne Target Team Handle
-              <br>
-              This is used to send vulnerability reports to the HackerOne Program automatically. Team handle can be found from the program URL, hackerone.com/team_handle.
-            </label>
-            {{ form.h1_team_handle }}
-          </div>
-          {% endif %}
           <button class="btn btn-primary submit-fn mt-2 float-end" type="submit">Update Target</button>
         </form>
       </div>

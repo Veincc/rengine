@@ -26,8 +26,6 @@ const subdomain_datatable_columns = [
   {'data': 'id'},
   {'data': 'directories_count'},
   {'data': 'subscan_count'},
-  {'data': 'waf'},
-  {'data': 'attack_surface'},
 ];
 
 const subdomain_datatable_page_length = 50;

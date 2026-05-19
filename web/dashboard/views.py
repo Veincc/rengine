@@ -333,12 +333,6 @@ def onboarding(request):
         create_username = request.POST.get('create_username')
         create_password = request.POST.get('create_password')
         create_user_role = request.POST.get('create_user_role')
-        key_openai = request.POST.get('key_openai')
-        key_netlas = request.POST.get('key_netlas')
-        key_chaos = request.POST.get('key_chaos')
-        key_hackerone = request.POST.get('key_hackerone')
-        username_hackerone = request.POST.get('username_hackerone')
-        bug_bounty_mode = request.POST.get('bug_bounty_mode') == 'on'
 
         insert_date = timezone.now()
 
@@ -351,13 +345,6 @@ def onboarding(request):
         except Exception as e:
             error = ' Could not create project, Error: ' + str(e)
 
-
-        # update currently logged in user's preferences for bug bounty mode
-        user_preferences, _ = UserPreferences.objects.get_or_create(user=request.user)
-        user_preferences.bug_bounty_mode = bug_bounty_mode
-        user_preferences.save()
-
-
         try:
             if create_username and create_password and create_user_role:
                 UserModel = get_user_model()
@@ -366,73 +353,9 @@ def onboarding(request):
                     password=create_password
                 )
                 assign_role(new_user, create_user_role)
-
-
-                # initially bug bounty mode is enabled for new user as selected for current user
-                new_user_preferences, _ = UserPreferences.objects.get_or_create(user=new_user)
-                new_user_preferences.bug_bounty_mode = bug_bounty_mode
-                new_user_preferences.save()
-                
         except Exception as e:
             error = ' Could not create User, Error: ' + str(e)
 
-        if key_openai:
-            openai_api_key = OpenAiAPIKey.objects.first()
-            if openai_api_key:
-                openai_api_key.key = key_openai
-                openai_api_key.save()
-            else:
-                OpenAiAPIKey.objects.create(key=key_openai)
-
-        if key_netlas:
-            netlas_api_key = NetlasAPIKey.objects.first()
-            if netlas_api_key:
-                netlas_api_key.key = key_netlas
-                netlas_api_key.save()
-            else:
-                NetlasAPIKey.objects.create(key=key_netlas)
-
-        if key_chaos:
-            chaos_api_key = ChaosAPIKey.objects.first()
-            if chaos_api_key:
-                chaos_api_key.key = key_chaos
-                chaos_api_key.save()
-            else:
-                ChaosAPIKey.objects.create(key=key_chaos)
-
-        if key_hackerone and username_hackerone:
-            hackerone_api_key = HackerOneAPIKey.objects.first()
-            if hackerone_api_key:
-                hackerone_api_key.username = username_hackerone
-                hackerone_api_key.key = key_hackerone
-                hackerone_api_key.save()
-            else:
-                HackerOneAPIKey.objects.create(
-                    username=username_hackerone, 
-                    key=key_hackerone
-                )
-
     context['error'] = error
-    
-
-    context['openai_key'] = OpenAiAPIKey.objects.first()
-    context['netlas_key'] = NetlasAPIKey.objects.first()
-    context['chaos_key'] = ChaosAPIKey.objects.first()
-    context['hackerone_key'] = HackerOneAPIKey.objects.first().key if HackerOneAPIKey.objects.first() else ''
-    context['hackerone_username'] = HackerOneAPIKey.objects.first().username if HackerOneAPIKey.objects.first() else ''
-
-    context['user_preferences'], _ = UserPreferences.objects.get_or_create(
-        user=request.user
-    )
 
     return render(request, 'dashboard/onboarding.html', context)
-
-
-
-def list_bountyhub_programs(request, slug):
-    context = {}
-    # get parameter to device which platform is being requested
-    platform = request.GET.get('platform') or 'hackerone'
-    context['platform'] = platform.capitalize()
-    
-    return render(request, 'dashboard/bountyhub_programs.html', context)

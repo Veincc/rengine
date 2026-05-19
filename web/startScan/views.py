@@ -196,17 +196,6 @@ def detail_scan(request, id, slug):
         'asset_countries': asset_countries,
     }
 
-    # Find number of matched GF patterns
-    if scan.used_gf_patterns:
-        count_gf = {}
-        for gf in scan.used_gf_patterns.split(','):
-            count_gf[gf] = (
-                endpoints
-                .filter(matched_gf_patterns__icontains=gf)
-                .count()
-            )
-            ctx['matched_gf_count'] = count_gf
-
     # Find last scan for this domain
     if last_scans.count() > 1:
         last_scan = last_scans.order_by('-start_scan_date')[1]

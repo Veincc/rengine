@@ -1,7 +1,7 @@
 import os
 import mimetypes
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse, Http404
+from django.http import FileResponse, HttpResponse, Http404
 from django.conf import settings
 
 @login_required
@@ -11,6 +11,8 @@ def serve_protected_media(request, path):
         raise Http404("File not found")
     if os.path.exists(file_path):
         content_type, _ = mimetypes.guess_type(file_path)
+        if settings.DEBUG:
+            return FileResponse(open(file_path, 'rb'), content_type=content_type)
         response = HttpResponse()
         # response['Content-Disposition'] = f'attachment; filename={os.path.basename(file_path)}'
         response['Content-Type'] = content_type
@@ -18,4 +20,3 @@ def serve_protected_media(request, path):
         return response
     else:
         raise Http404("File not found")
-

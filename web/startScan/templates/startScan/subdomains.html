@@ -31,7 +31,7 @@ All subdomains
 <script src="{% static 'assets/js/clipboard.min.js' %}"></script>
 <script src="{% static 'startScan/js/subdomains-suggestions.js' %}"></script>
 <script src="{% static 'custom/subdomain.js' %}"></script>
-<script src="{% static 'custom/subdomain_datatable.js' %}"></script>
+<script src="{% static 'custom/subdomain_datatable.js' %}?v=20260519"></script>
 <script type="text/javascript">
 $(document).ready(function() {
 	const ps = new PerfectScrollbar(document.querySelector('.mt-container'));
@@ -72,12 +72,12 @@ $(document).ready(function() {
 		"columnDefs": [
 			{ "orderable": false, "targets": [2, 3, 6, 7, 9]},
 			{
-				"targets": [ 2, 3, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 25, 26, 27, 28],
+				"targets": [ 2, 3, 14, 15, 16, 17, 18, 19, 20, 25, 26],
 				"visible": false,
 				"searchable": false,
 			},
 			{
-				"targets": [ 11, 13, 21, 22, 23 ],
+				"targets": [ 11, 12, 13, 21, 22, 23 ],
 				"visible": false,
 				"searchable": true,
 			},
@@ -95,7 +95,6 @@ $(document).ready(function() {
 						var interesting_badge = '';
 						var content_type = '';
 						var web_server = '';
-						var waf_badge = '';
 						if (row['technologies']){
 							tech_badge = '<div>' + parse_technology(row['technologies'], "primary", scan_id=null, domain_id=null) + '</div>';
 						}
@@ -126,15 +125,6 @@ $(document).ready(function() {
 						endpoint_count_badge = '';
 						if (row['endpoint_count']) {
 							endpoint_count_badge = `<span class="pl-2 pr-2 me-1 badge badge-soft-primary badge-link bs-tooltip" title="Endpoints" onclick="get_endpoint_modal(project='{{current_project.slug}}', scan_id=null, subdomain_id=${row['id']}, '${row['name']}')">${row['endpoint_count']} <i class=" fas fa-link"></i></span>`;
-						}
-
-						if(row['waf'].length){
-							waf_badge = `<div><span class="pl-2 pr-2 my-1 badge badge-soft-danger" bs-tooltip" title="WAF Detected by wafw00f!""><i class="fe-cloud-lightning mx-1"></i>WAF Detected</span>`;
-							for (var waf in row['waf']) {
-								var waf_object = row['waf'][waf];
-								waf_badge += `<span class="mx-1 my-1 badge badge-soft-danger" bs-tooltip" title="WAF Manufacturer: ${waf_object.manufacturer}">${waf_object.name}</span>`;
-							}
-							waf_badge += `</div>`;
 						}
 
 						vuln_count_badge = '';
@@ -170,11 +160,11 @@ $(document).ready(function() {
 						if (row['http_url']) {
 							if (row['cname']) {
 								cname_badge = `<div><span class="text-dark">CNAME<br><span class="text-warning"> ❯ </span>` + row['cname'].replace(',', '<br><span class="text-warning"> ❯ </span>') + `</div>`;
-								return badges + `<div class="clipboard copy-txt"><a href="` + row['http_url'] + `" class="text-primary" target="_blank"><span id='subdomain-${row['id']}'>` + data + `${copy_icon} </span></a>` + `</div>` + cname_badge + waf_badge + end_vuln_badge + tech_badge + todo_badge;
+								return badges + `<div class="clipboard copy-txt"><a href="` + row['http_url'] + `" class="text-primary" target="_blank"><span id='subdomain-${row['id']}'>` + data + `${copy_icon} </span></a>` + `</div>` + cname_badge + end_vuln_badge + tech_badge + todo_badge;
 							}
-							return badges + `<div class="clipboard copy-txt"><a href="` + row['http_url'] + `" class="text-primary" target="_blank"><span id='subdomain-${row['id']}'>` + data + `${copy_icon} </span></a>` + `</div>` + waf_badge + end_vuln_badge + tech_badge + todo_badge;
+							return badges + `<div class="clipboard copy-txt"><a href="` + row['http_url'] + `" class="text-primary" target="_blank"><span id='subdomain-${row['id']}'>` + data + `${copy_icon} </span></a>` + `</div>` + end_vuln_badge + tech_badge + todo_badge;
 						}
-						return badges + `<div class="clipboard copy-txt"><a href="https://` + data + `" class="text-primary" target="_blank"><span id='subdomain-${row['id']}'>` + data + `${copy_icon} </span></a>` + `</div>` + waf_badge + end_vuln_badge + tech_badge + todo_badge;
+						return badges + `<div class="clipboard copy-txt"><a href="https://` + data + `" class="text-primary" target="_blank"><span id='subdomain-${row['id']}'>` + data + `${copy_icon} </span></a>` + `</div>` + end_vuln_badge + tech_badge + todo_badge;
 					},
 					"targets": 1
 				},
@@ -290,7 +280,6 @@ $(document).ready(function() {
 							<button class="btn btn-primary me-1 dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><i class="mdi mdi-dots-horizontal"></i></button>
 							<div class="dropdown-menu dropdown-menu-end">
 							<a class="dropdown-item" href="#" onclick="mark_important_subdomain(this, ${row['id']})" id="${row['id']}"><i class="mdi mdi-alert-rhombus-outline me-2 text-muted font-18 vertical-middle"></i>Mark Important Subdomain</a>
-							<a class="dropdown-item" href="#" onclick="detect_subdomain_cms('${cms_detector_http_url}', ${row['http_status']})"><i class="fe-grid me-2 text-muted font-18 vertical-middle"></i>Detect CMS</a>
 							<a class="text-danger dropdown-item btn-delete-subdomain" href="#" id="${row['id']}"><i class="text-danger mdi mdi-delete-forever-outline me-2 font-18 vertical-middle"></i>Delete Subdomain</a>
 							</div>
 						</div>

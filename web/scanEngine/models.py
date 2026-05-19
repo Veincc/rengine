@@ -95,17 +95,6 @@ class Proxy(models.Model):
     proxies = models.TextField(blank=True, null=True)
 
 
-class Hackerone(models.Model):
-    id = models.AutoField(primary_key=True)
-    # TODO: username and api_key fields will be deprecated in another major release, Instead HackerOneAPIKey model from dasbhboard/models.py will be used
-    username = models.CharField(max_length=100, null=True, blank=True) # unused
-    api_key = models.CharField(max_length=200, null=True, blank=True) # unused
-    send_report = models.BooleanField(default=False, null=True, blank=True)
-    send_critical = models.BooleanField(default=True)
-    send_high = models.BooleanField(default=True)
-    send_medium = models.BooleanField(default=False)
-    report_template = models.TextField(blank=True, null=True)
-
 
 class VulnerabilityReportSetting(models.Model):
     id = models.AutoField(primary_key=True)

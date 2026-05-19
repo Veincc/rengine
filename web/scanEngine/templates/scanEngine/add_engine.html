@@ -59,12 +59,8 @@ $(document).ready(function() {
   $('.ace_text-input').attr('id','editor');
   document.getElementById("editor").innerHTML = `subdomain_discovery: {
   'uses_tools': [
-    'subfinder',
-    'ctfr',
     'sublist3r',
-    'tlsx',
-    'oneforall',
-    'netlas'
+    'oneforall'
   ],
   'enable_http_crawl': true,
   'threads': 30,
@@ -74,17 +70,10 @@ http_crawl: {}
 port_scan: {
   'enable_http_crawl': true,
   'timeout': 5,
-  # 'exclude_ports': [],
-  # 'exclude_subdomains': true,
   'ports': ['top-100'],
   'rate_limit': 150,
   'threads': 30,
   'passive': false,
-  # 'use_naabu_config': false,
-  # 'enable_nmap': true,
-  # 'nmap_cmd': '',
-  # 'nmap_script': '',
-  # 'nmap_script_args': ''
 }
 osint: {
   'discover': [
@@ -108,16 +97,6 @@ osint: {
     'db_files',
     'git_exposed'
   ],
-  'custom_dorks': [
-    {
-      'lookup_site': 'google.com',
-      'lookup_keywords': '/home/'
-    },
-    {
-      'lookup_site': '_target_',
-      'lookup_extensions': 'jpg,png'
-    }
-  ],
   'intensity': 'normal',
   'documents_limit': 50
 }
@@ -125,7 +104,7 @@ dir_file_fuzz: {
   'auto_calibration': true,
   'enable_http_crawl': true,
   'rate_limit': 150,
-  'extensions': ['html', 'php','git','yaml','conf','cnf','config','gz','env','log','db','mysql','bak','asp','aspx','txt','conf','sql','json','yml','pdf'],
+  'extensions': [],
   'follow_redirect': false,
   'max_time': 0,
   'match_http_status': [200, 204],
@@ -137,9 +116,6 @@ dir_file_fuzz: {
 }
 fetch_url: {
   'uses_tools': [
-    'gospider',
-    'hakrawler',
-    'waybackurls',
     'katana',
     'gau'
   ],
@@ -149,26 +125,22 @@ fetch_url: {
     'page_title'
   ],
   'enable_http_crawl': true,
-  'gf_patterns': ['debug_logic', 'idor', 'interestingEXT', 'interestingparams', 'interestingsubs', 'lfi', 'rce', 'redirect', 'sqli', 'ssrf', 'ssti', 'xss'],
   'ignore_file_extensions': ['png', 'jpg', 'jpeg', 'gif', 'mp4', 'mpeg', 'mp3'],
   'threads': 30
-  # 'exclude_subdomains': true
+}
+fingerprint: {
+  'run_whatweb': true,
+  'run_cmseek': true,
 }
 vulnerability_scan: {
-  'run_nuclei': false,
-  'run_dalfox': false,
-  'run_crlfuzz': false,
-  'run_s3scanner': true,
+  'run_nuclei': true,
   'enable_http_crawl': true,
   'concurrency': 50,
+  'intensity': 'normal',
   'rate_limit': 150,
   'retries': 1,
   'timeout': 5,
-  'fetch_gpt_report': true,
   'nuclei': {
-    # 'tags': [],
-    # 'templates': [],
-    # 'custom_templates': [],
     'use_nuclei_config': false,
     'severities': [
       'unknown',
@@ -178,19 +150,8 @@ vulnerability_scan: {
       'high',
       'critical'
     ]
-  },
-  's3scanner': {
-    'threads': 100,
-    'providers': [
-      'aws',
-      'gcp',
-      'digitalocean',
-      'dreamhost',
-      'linode'
-    ]
   }
 }
-waf_detection: {}
 screenshot: {
   'enable_http_crawl': true,
   'intensity': 'normal',

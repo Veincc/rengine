@@ -26,246 +26,17 @@ from reNgine.common_func import *
 from reNgine.database_utils import *
 from reNgine.definitions import ABORTED_TASK
 from reNgine.tasks import *
-from reNgine.llm import *
 from reNgine.utilities import is_safe_path
 from scanEngine.models import *
 from startScan.models import *
 from startScan.models import EndPoint
 from targetApp.models import *
-from api.shared_api_tasks import import_hackerone_programs_task, sync_bookmarked_programs_task
 from api.permissions import *
 from api.serializers import *
 
 
 logger = logging.getLogger(__name__)
 
-
-class ToggleBugBountyModeView(APIView):
-	"""
-		This class manages the user bug bounty mode
-	"""
-	def post(self, request, *args, **kwargs):
-		user_preferences = get_object_or_404(UserPreferences, user=request.user)
-		user_preferences.bug_bounty_mode = not user_preferences.bug_bounty_mode
-		user_preferences.save()
-		return Response({
-			'bug_bounty_mode': user_preferences.bug_bounty_mode
-		}, status=status.HTTP_200_OK)
-
-
-class HackerOneProgramViewSet(viewsets.ViewSet):
-	"""
-		This class manages the HackerOne Program model, 
-		provides basic fetching of programs and caching
-	"""
-	CACHE_KEY = 'hackerone_programs'
-	CACHE_TIMEOUT = 60 * 30 # 30 minutes
-	PROGRAM_CACHE_KEY = 'hackerone_program_{}'
-
-	API_BASE = 'https://api.hackerone.com/v1/hackers'
-
-	ALLOWED_ASSET_TYPES = ["WILDCARD", "DOMAIN", "IP_ADDRESS", "CIDR", "URL"]
-
-	def list(self, request):
-		try:
-			sort_by = request.query_params.get('sort_by', 'age')
-			sort_order = request.query_params.get('sort_order', 'desc')
-
-			programs = self.get_cached_programs()
-
-			if sort_by == 'name':
-				programs = sorted(programs, key=lambda x: x['attributes']['name'].lower(), 
-						reverse=(sort_order.lower() == 'desc'))
-			elif sort_by == 'reports':
-				programs = sorted(programs, key=lambda x: x['attributes'].get('number_of_reports_for_user', 0), 
-						reverse=(sort_order.lower() == 'desc'))
-			elif sort_by == 'age':
-				programs = sorted(programs, 
-					key=lambda x: datetime.strptime(x['attributes'].get('started_accepting_at', '1970-01-01T00:00:00.000Z'), '%Y-%m-%dT%H:%M:%S.%fZ'), 
-					reverse=(sort_order.lower() == 'desc')
-				)
-
-			serializer = HackerOneProgramSerializer(programs, many=True)
-			return Response(serializer.data)
-		except Exception as e:
-			return self.handle_exception(e)
-	
-	def get_api_credentials(self):
-		try:
-			api_key = HackerOneAPIKey.objects.first()
-			if not api_key:
-				raise ObjectDoesNotExist("HackerOne API credentials not found")
-			return api_key.username, api_key.key
-		except ObjectDoesNotExist:
-			raise Exception("HackerOne API credentials not configured")
-
-	@action(detail=False, methods=['get'])
-	def bookmarked_programs(self, request):
-		try:
-			# do not cache bookmarked programs due to the user specific nature
-			programs = self.fetch_programs_from_hackerone()
-			bookmarked = [p for p in programs if p['attributes']['bookmarked']]
-			serializer = HackerOneProgramSerializer(bookmarked, many=True)
-			return Response(serializer.data)
-		except Exception as e:
-			return self.handle_exception(e)
-	
-	@action(detail=False, methods=['get'])
-	def bounty_programs(self, request):
-		try:
-			programs = self.get_cached_programs()
-			bounty_programs = [p for p in programs if p['attributes']['offers_bounties']]
-			serializer = HackerOneProgramSerializer(bounty_programs, many=True)
-			return Response(serializer.data)
-		except Exception as e:
-			return self.handle_exception(e)
-
-	def get_cached_programs(self):
-		programs = cache.get(self.CACHE_KEY)
-		if programs is None:
-			programs = self.fetch_programs_from_hackerone()
-			cache.set(self.CACHE_KEY, programs, self.CACHE_TIMEOUT)
-		return programs
-
-	def fetch_programs_from_hackerone(self):
-		url = f'{self.API_BASE}/programs?page[size]=100'
-		headers = {'Accept': 'application/json'}
-		all_programs = []
-		try:
-			username, api_key = self.get_api_credentials()
-		except Exception as e:
-			raise Exception("API credentials error: " + str(e))
-
-		while url:
-			response = requests.get(
-				url,
-				headers=headers,
-				auth=(username, api_key)
-			)
-
-			if response.status_code == 401:
-				raise Exception("Invalid API credentials")
-			elif response.status_code != 200:
-				raise Exception(f"HackerOne API request failed with status code {response.status_code}")
-
-			data = response.json()
-			all_programs.extend(data['data'])
-			
-			url = data['links'].get('next')
-
-		return all_programs
-
-	@action(detail=False, methods=['post'])
-	def refresh_cache(self, request):
-		try:
-			programs = self.fetch_programs_from_hackerone()
-			cache.set(self.CACHE_KEY, programs, self.CACHE_TIMEOUT)
-			return Response({"status": "Cache refreshed successfully"})
-		except Exception as e:
-			return self.handle_exception(e)
-	
-	@action(detail=True, methods=['get'])
-	def program_details(self, request, pk=None):
-		try:
-			program_handle = pk
-			cache_key = self.PROGRAM_CACHE_KEY.format(program_handle)
-			program_details = cache.get(cache_key)
-
-			if program_details is None:
-				program_details = self.fetch_program_details_from_hackerone(program_handle)
-				if program_details:
-					cache.set(cache_key, program_details, self.CACHE_TIMEOUT)
-
-			if program_details:
-				filtered_scopes = [
-					scope for scope in program_details.get('relationships', {}).get('structured_scopes', {}).get('data', [])
-					if scope.get('attributes', {}).get('asset_type') in self.ALLOWED_ASSET_TYPES
-				]
-
-				program_details['relationships']['structured_scopes']['data'] = filtered_scopes
-
-				return Response(program_details)
-			else:
-				return Response({"error": "Program not found"}, status=status.HTTP_404_NOT_FOUND)
-		except Exception as e:
-			return self.handle_exception(e)
-
-	def fetch_program_details_from_hackerone(self, program_handle):
-		url = f'{self.API_BASE}/programs/{program_handle}'
-		headers = {'Accept': 'application/json'}
-		try:
-			username, api_key = self.get_api_credentials()
-		except Exception as e:
-			raise Exception("API credentials error: " + str(e))
-
-		response = requests.get(
-			url,
-			headers=headers,
-			auth=(username, api_key)
-		)
-
-		if response.status_code == 401:
-			raise Exception("Invalid API credentials")
-		elif response.status_code == 200:
-			return response.json()
-		else:
-			return None
-		
-	@action(detail=False, methods=['post'])
-	def import_programs(self, request):
-		try:
-			project_slug = request.query_params.get('project_slug')
-			if not project_slug:
-				return Response({"error": "Project slug is required"}, status=status.HTTP_400_BAD_REQUEST)
-			handles = request.data.get('handles', [])
-
-			if not handles:
-				return Response({"error": "No program handles provided"}, status=status.HTTP_400_BAD_REQUEST)
-
-			import_hackerone_programs_task.delay(handles, project_slug)
-
-			create_inappnotification(
-				title="HackerOne Program Import Started",
-				description=f"Import process for {len(handles)} program(s) has begun.",
-				notification_type=PROJECT_LEVEL_NOTIFICATION,
-				project_slug=project_slug,
-				icon="mdi-download",
-				status='info'
-			)
-
-			return Response({"message": f"Import process for {len(handles)} program(s) has begun."}, status=status.HTTP_202_ACCEPTED)
-		except Exception as e:
-			return self.handle_exception(e)
-	
-	@action(detail=False, methods=['get'])
-	def sync_bookmarked(self, request):
-		try:
-			project_slug = request.query_params.get('project_slug')
-			if not project_slug:
-				return Response({"error": "Project slug is required"}, status=status.HTTP_400_BAD_REQUEST)
-
-			sync_bookmarked_programs_task.delay(project_slug)
-
-			create_inappnotification(
-				title="HackerOne Bookmarked Programs Sync Started",
-				description="Sync process for bookmarked programs has begun.",
-				notification_type=PROJECT_LEVEL_NOTIFICATION,
-				project_slug=project_slug,
-				icon="mdi-sync",
-				status='info'
-			)
-
-			return Response({"message": "Sync process for bookmarked programs has begun."}, status=status.HTTP_202_ACCEPTED)
-		except Exception as e:
-			return self.handle_exception(e)
-
-	def handle_exception(self, exc):
-		if isinstance(exc, ObjectDoesNotExist):
-			return Response({"error": "HackerOne API credentials not configured"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-		elif str(exc) == "Invalid API credentials":
-			return Response({"error": "Invalid HackerOne API credentials"}, status=status.HTTP_401_UNAUTHORIZED)
-		else:
-			return Response({"error": str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class InAppNotificationManagerViewSet(viewsets.ModelViewSet):
 	"""
@@ -330,150 +101,6 @@ class InAppNotificationManagerViewSet(viewsets.ModelViewSet):
 			)
 		queryset.delete()
 		return Response(status=HTTP_204_NO_CONTENT)
-
-
-class OllamaManager(APIView):
-	permission_classes = [HasPermission]
-	permission_required = PERM_MODIFY_SYSTEM_CONFIGURATIONS
-
-	def get(self, request):
-		"""
-		API to download Ollama Models
-		sends a POST request to download the model
-		"""
-		req = self.request
-		model_name = req.query_params.get('model')
-		response = {
-			'status': False
-		}
-		try:
-			pull_model_api = f'{OLLAMA_INSTANCE}/api/pull'
-			_response = requests.post(
-				pull_model_api, 
-				json={
-					'name': model_name,
-					'stream': False
-				}
-			).json()
-			if _response.get('error'):
-				response['status'] = False
-				response['error'] = _response.get('error')
-			else:
-				response['status'] = True
-		except Exception as e:
-			response['error'] = str(e)		
-		return Response(response)
-	
-	def delete(self, request):
-		req = self.request
-		model_name = req.query_params.get('model')
-		delete_model_api = f'{OLLAMA_INSTANCE}/api/delete'
-		response = {
-			'status': False
-		}
-		try:
-			_response = requests.delete(
-				delete_model_api, 
-				json={
-					'name': model_name
-				}
-			).json()
-			if _response.get('error'):
-				response['status'] = False
-				response['error'] = _response.get('error')
-			else:
-				response['status'] = True
-		except Exception as e:
-			response['error'] = str(e)
-		return Response(response)
-	
-	def put(self, request):
-		req = self.request
-		model_name = req.query_params.get('model')
-		# check if model_name is in DEFAULT_GPT_MODELS
-		response = {
-			'status': False
-		}
-		use_ollama = True
-		if any(model['name'] == model_name for model in DEFAULT_GPT_MODELS):
-			use_ollama = False
-		try:
-			OllamaSettings.objects.update_or_create(
-				defaults={
-					'selected_model': model_name,
-					'use_ollama': use_ollama
-				},
-				id=1
-			)
-			response['status'] = True
-		except Exception as e:
-			response['error'] = str(e)
-		return Response(response)
-
-
-class GPTAttackSuggestion(APIView):
-	def get(self, request):
-		req = self.request
-		subdomain_id = req.query_params.get('subdomain_id')
-		if not subdomain_id:
-			return Response({
-				'status': False,
-				'error': 'Missing GET param Subdomain `subdomain_id`'
-			})
-		try:
-			subdomain = Subdomain.objects.get(id=subdomain_id)
-		except Exception as e:
-			return Response({
-				'status': False,
-				'error': 'Subdomain not found with id ' + subdomain_id
-			})
-		if subdomain.attack_surface:
-			return Response({
-				'status': True,
-				'subdomain_name': subdomain.name,
-				'description': subdomain.attack_surface
-			})
-		ip_addrs = subdomain.ip_addresses.all()
-		open_ports_str = ''
-		for ip in ip_addrs:
-			ports = ip.ports.all()
-			for port in ports:
-				open_ports_str += f'{port.number}/{port.service_name}, '
-		tech_used = ''
-		for tech in subdomain.technologies.all():
-			tech_used += f'{tech.name}, '
-		llm_input = f'''
-			Subdomain Name: {subdomain.name}
-			Subdomain Page Title: {subdomain.page_title}
-			Open Ports: {open_ports_str}
-			HTTP Status: {subdomain.http_status}
-			Technologies Used: {tech_used}
-			Content type: {subdomain.content_type}
-			Web Server: {subdomain.webserver}
-			Page Content Length: {subdomain.content_length}
-		'''
-		llm_input = re.sub(r'\t', '', llm_input)
-		gpt = LLMAttackSuggestionGenerator(logger)
-		response = gpt.get_attack_suggestion(llm_input)
-		response['subdomain_name'] = subdomain.name
-		if response.get('status'):
-			subdomain.attack_surface = response.get('description')
-			subdomain.save()
-		return Response(response)
-
-
-class LLMVulnerabilityReportGenerator(APIView):
-	def get(self, request):
-		req = self.request
-		vulnerability_id = req.query_params.get('id')
-		if not vulnerability_id:
-			return Response({
-				'status': False,
-				'error': 'Missing GET param Vulnerability `id`'
-			})
-		task = llm_vulnerability_description.apply_async(args=(vulnerability_id,))
-		response = task.wait()
-		return Response(response)
 
 
 class CreateProjectApi(APIView):
@@ -564,31 +191,6 @@ class ListTargetsDatatableViewSet(viewsets.ModelViewSet):
 
 		return qs.order_by('-id')
 
-
-
-class WafDetector(APIView):
-	def get(self, request):
-		req = self.request
-		url= req.query_params.get('url')
-		response = {}
-		response['status'] = False
-
-		# validate url as a first step to avoid command injection
-		if not (validators.url(url) or validators.domain(url)):
-			response['message'] = 'Invalid Domain/URL provided!'
-			return Response(response)
-		
-		wafw00f_command = f'wafw00f {url}'
-		_, output = run_command(wafw00f_command, remove_ansi_sequence=True)
-		regex = r"behind (.*?) WAF"
-		group = re.search(regex, output)
-		if group:
-			response['status'] = True
-			response['results'] = group.group(1)
-		else:
-			response['message'] = 'Could not detect any WAF!'
-
-		return Response(response)
 
 
 class SearchHistoryView(APIView):
@@ -1537,62 +1139,6 @@ class DomainIPHistory(APIView):
 		return Response(response)
 
 
-class CMSDetector(APIView):
-	def get(self, request):
-		req = self.request
-		url = req.query_params.get('url')
-		#save_db = True if 'save_db' in req.query_params else False
-		response = {'status': False}
-
-		if not (validators.url(url) or validators.domain(url)):
-			response['message'] = 'Invalid Domain/URL provided!'
-			return Response(response)
-
-		try:
-			# response = get_cms_details(url)
-			response = {}
-			cms_detector_command = f'python3 /usr/src/github/CMSeeK/cmseek.py'
-			cms_detector_command += ' --random-agent --batch --follow-redirect'
-			cms_detector_command += f' -u {url}'
-
-			_, output = run_command(cms_detector_command, remove_ansi_sequence=True)
-
-			response['message'] = 'Could not detect CMS!'
-
-			parsed_url = urlparse(url)
-
-			domain_name = parsed_url.hostname
-			port = parsed_url.port
-
-			find_dir = domain_name
-
-			if port:
-				find_dir += '_{}'.format(port)
-			# look for result path in output
-			path_regex = r"Result: (\/usr\/src[^\"\s]*)"
-			match = re.search(path_regex, output)
-			if match:
-				cms_json_path = match.group(1)
-				if os.path.isfile(cms_json_path):
-					cms_file_content = json.loads(open(cms_json_path, 'r').read())
-					if not cms_file_content.get('cms_id'):
-						return response
-					response = {}
-					response = cms_file_content
-					response['status'] = True
-					try:
-						# remove results
-						cms_dir_path = os.path.dirname(cms_json_path)
-						shutil.rmtree(cms_dir_path)
-					except Exception as e:
-						logger.error(e)
-					return Response(response)
-			return Response(response)
-		except Exception as e:
-			response = {'status': False, 'message': str(e)}
-			return Response(response)
-
-
 class IPToDomain(APIView):
 	def get(self, request):
 		req = self.request
@@ -1632,13 +1178,6 @@ class IPToDomain(APIView):
 			return Response(response)
 
 
-class VulnerabilityReport(APIView):
-	def get(self, request):
-		req = self.request
-		vulnerability_id = req.query_params.get('vulnerability_id')
-		return Response({"status": send_hackerone_report(vulnerability_id)})
-
-
 class GetFileContents(APIView):
 	def get(self, request, format=None):
 		req = self.request
@@ -1657,16 +1196,6 @@ class GetFileContents(APIView):
 			response['content'] = f.read()
 			return Response(response)
 
-		if 'subfinder_config' in req.query_params:
-			path = "/root/.config/subfinder/config.yaml"
-			if not os.path.exists(path):
-				run_command(f'touch {path}')
-				response['message'] = 'File Created!'
-			f = open(path, "r")
-			response['status'] = True
-			response['content'] = f.read()
-			return Response(response)
-
 		if 'naabu_config' in req.query_params:
 			path = "/root/.config/naabu/config.yaml"
 			if not os.path.exists(path):
@@ -1676,39 +1205,6 @@ class GetFileContents(APIView):
 			response['status'] = True
 			response['content'] = f.read()
 			return Response(response)
-
-		if 'theharvester_config' in req.query_params:
-			path = "/usr/src/github/theHarvester/api-keys.yaml"
-			if not os.path.exists(path):
-				run_command(f'touch {path}')
-				response['message'] = 'File Created!'
-			f = open(path, "r")
-			response['status'] = True
-			response['content'] = f.read()
-			return Response(response)
-
-		if 'amass_config' in req.query_params:
-			path = "/root/.config/amass.ini"
-			if not os.path.exists(path):
-				run_command(f'touch {path}')
-				response['message'] = 'File Created!'
-			f = open(path, "r")
-			response['status'] = True
-			response['content'] = f.read()
-			return Response(response)
-
-		if 'gf_pattern' in req.query_params:
-			basedir = '/root/.gf'
-			path = f'/root/.gf/{name}.json'
-			if is_safe_path(basedir, path) and os.path.exists(path):
-				content = open(path, "r").read()
-				response['status'] = True
-				response['content'] = content
-			else:
-				response['message'] = "Invalid path!"
-				response['status'] = False
-			return Response(response)
-
 
 		if 'nuclei_template' in req.query_params:
 			safe_dir = '/root/nuclei-templates'
@@ -3012,7 +2508,6 @@ class VulnerabilityViewSet(viewsets.ModelViewSet):
 					Q(cvss_score__icontains=search_value) |
 					Q(type__icontains=search_value) |
 					Q(open_status__icontains=search_value) |
-					Q(hackerone_report_id__icontains=search_value) |
 					Q(tags__name__icontains=search_value))
 		)
 		return qs

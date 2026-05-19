@@ -1,4 +1,4 @@
-import whatportis
+import socket
 import socket
 import json
 import os
@@ -1030,56 +1030,6 @@ def get_domain_historical_ip_address(domain):
 	return ips
 
 
-def get_open_ai_key():
-	openai_key = OpenAiAPIKey.objects.all()
-	return openai_key[0] if openai_key else None
-
-
-def get_netlas_key():
-	netlas_key = NetlasAPIKey.objects.all()
-	return netlas_key[0] if netlas_key else None
-
-
-def get_chaos_key():
-	chaos_key = ChaosAPIKey.objects.all()
-	return chaos_key[0] if chaos_key else None
-
-
-def get_hackerone_key_username():
-	"""
-		Get the HackerOne API key username from the database.
-		Returns: a tuple of the username and api key
-	"""
-	hackerone_key = HackerOneAPIKey.objects.all()
-	return (hackerone_key[0].username, hackerone_key[0].key) if hackerone_key else None
-
-
-def parse_llm_vulnerability_report(report):
-	report = report.replace('**', '')
-	data = {}
-	sections = re.split(r'\n(?=(?:Description|Impact|Remediation|References):)', report.strip())
-	
-	try:
-		for section in sections:
-			if not section.strip():
-				continue
-			
-			section_title, content = re.split(r':\n', section.strip(), maxsplit=1)
-			
-			if section_title == 'Description':
-				data['description'] = content.strip()
-			elif section_title == 'Impact':
-				data['impact'] = content.strip()
-			elif section_title == 'Remediation':
-				data['remediation'] = content.strip()
-			elif section_title == 'References':
-				data['references'] = [ref.strip() for ref in content.split('\n') if ref.strip()]
-	except Exception as e:
-		return data
-	
-	return data
-
-
 def create_scan_object(host_id, engine_id, initiated_by_id=None):
 	'''
 	create task with pending status so that celery task will execute when
@@ -1111,39 +1061,29 @@ def create_scan_object(host_id, engine_id, initiated_by_id=None):
 
 def get_port_service_description(port):
 	"""
-		Retrieves the standard service name and description for a given port 
-		number using whatportis and the builtin socket library as fallback.
+		Retrieves the standard service name for a given port number using the socket library.
 
 		Args:
-			port (int or str): The port number to look up. 
+			port (int or str): The port number to look up.
 				Can be an integer or a string representation of an integer.
 
 		Returns:
 			dict: A dictionary containing the service name and description for the port number.
 	"""
-	logger.info('Fetching Port Service Name and Description')
+	logger.info('Fetching Port Service Name')
 	try:
 		port = int(port)
-		whatportis_result = whatportis.get_ports(str(port))
-		
-		if whatportis_result and whatportis_result[0].name:
+		try:
+			service = socket.getservbyport(port)
 			return {
-				"service_name": whatportis_result[0].name,
-				"description": whatportis_result[0].description
+				"service_name": service,
+				"description": ""
 			}
-		else:
-			try:
-				service = socket.getservbyport(port)
-				return {
-					"service_name": service,
-					"description": "" # Keep description blank when using socket
-				}
-			except OSError:
-				# If both whatportis and socket fail
-				return {
-					"service_name": "",
-					"description": ""
-				}
+		except OSError:
+			return {
+				"service_name": "",
+				"description": ""
+			}
 	except:
 		# port is not a valid int or any other exception
 		return {

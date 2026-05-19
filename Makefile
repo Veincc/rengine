@@ -7,6 +7,7 @@ include .env
 COMPOSE_PREFIX_CMD := COMPOSE_DOCKER_CLI_BUILD=1
 
 COMPOSE_ALL_FILES := -f docker-compose.yml
+COMPOSE_DEV_FILES := -f docker-compose.dev.yml
 SERVICES          := db web proxy redis celery celery-beat ollama
 
 # Check if 'docker compose' command is available, otherwise use 'docker-compose'
@@ -73,3 +74,37 @@ prune:			## Remove containers and delete volume data.
 help:			## Show this help.
 	@echo "Make application Docker images and manage containers using Docker Compose files."
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m (default: help)\n\nTargets:\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+
+# Development commands
+dev-up:			## Start development environment.
+	${COMPOSE_PREFIX_CMD} ${DOCKER_COMPOSE} ${COMPOSE_DEV_FILES} up -d --build
+
+dev-down:		## Stop development environment.
+	${COMPOSE_PREFIX_CMD} ${DOCKER_COMPOSE} ${COMPOSE_DEV_FILES} down
+
+dev-restart:	## Restart development services (no rebuild).
+	${COMPOSE_PREFIX_CMD} ${DOCKER_COMPOSE} ${COMPOSE_DEV_FILES} restart ${SERVICES}
+
+dev-restart-web: ## Restart only web service.
+	${COMPOSE_PREFIX_CMD} ${DOCKER_COMPOSE} ${COMPOSE_DEV_FILES} restart web
+
+dev-restart-celery: ## Restart only celery service.
+	${COMPOSE_PREFIX_CMD} ${DOCKER_COMPOSE} ${COMPOSE_DEV_FILES} restart celery
+
+dev-logs:		## Tail development logs.
+	${COMPOSE_PREFIX_CMD} ${DOCKER_COMPOSE} ${COMPOSE_DEV_FILES} logs --follow --tail=1000 ${SERVICES}
+
+dev-logs-web:	## Tail web logs only.
+	${COMPOSE_PREFIX_CMD} ${DOCKER_COMPOSE} ${COMPOSE_DEV_FILES} logs --follow --tail=1000 web
+
+dev-logs-celery: ## Tail celery logs only.
+	${COMPOSE_PREFIX_CMD} ${DOCKER_COMPOSE} ${COMPOSE_DEV_FILES} logs --follow --tail=1000 celery
+
+dev-migrate:	## Run migrations in development.
+	${COMPOSE_PREFIX_CMD} ${DOCKER_COMPOSE} ${COMPOSE_DEV_FILES} exec web python3 manage.py migrate
+
+dev-shell:		## Open Django shell in development.
+	${COMPOSE_PREFIX_CMD} ${DOCKER_COMPOSE} ${COMPOSE_DEV_FILES} exec web python3 manage.py shell
+
+dev-install-tools:	## Install all tools in development container (run once).
+	./scripts/install-tools.sh

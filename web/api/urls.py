@@ -20,7 +20,6 @@ router.register(r'listIps', IpAddressViewSet)
 router.register(r'listActivityLogs', ListActivityLogsViewSet)
 router.register(r'listScanLogs', ListScanLogsViewSet)
 router.register(r'notifications', InAppNotificationManagerViewSet, basename='notification')
-router.register(r'hackerone-programs', HackerOneProgramViewSet, basename='hackerone_program')
 
 urlpatterns = [
     url('^', include(router.urls)),
@@ -81,10 +80,6 @@ urlpatterns = [
         ListDorkTypes.as_view(),
         name='queryDorkTypes'),
     path(
-        'queryDorkTypes/',
-        ListDorkTypes.as_view(),
-        name='queryDorkTypes'),
-    path(
         'queryAllScanResultVisualise/',
         VisualiseData.as_view(),
         name='queryAllScanResultVisualise'),
@@ -125,10 +120,6 @@ urlpatterns = [
         GetFileContents.as_view(),
         name='getFileContents'),
     path(
-        'vulnerability/report/',
-        VulnerabilityReport.as_view(),
-        name='vulnerability_report'),
-    path(
         'tools/ip_to_domain/',
         IPToDomain.as_view(),
         name='ip_to_domain'),
@@ -145,25 +136,9 @@ urlpatterns = [
         DomainIPHistory.as_view(),
         name='domain_ip_history'),
     path(
-        'tools/cms_detector/',
-        CMSDetector.as_view(),
-        name='cms_detector'),
-    path(
         'tools/cve_details/',
         CVEDetails.as_view(),
         name='cve_details'),
-    path(
-        'tools/waf_detector/',
-        WafDetector.as_view(),
-        name='waf_detector'),
-    path(
-        'tools/gpt_vulnerability_report/',
-        LLMVulnerabilityReportGenerator.as_view(),
-        name='gpt_vulnerability_report_generator'),
-    path(
-        'tools/gpt_get_possible_attacks/',
-        GPTAttackSuggestion.as_view(),
-        name='gpt_get_possible_attacks'),
     path(
         'github/tool/get_latest_releases/',
         GithubToolCheckGetLatestRelease.as_view(),
@@ -180,10 +155,6 @@ urlpatterns = [
         'tool/uninstall/',
         UninstallTool.as_view(),
         name='uninstall_tool'),
-	path(
-        'tool/ollama/',
-        OllamaManager.as_view(),
-        name='ollama_manager'),
     path(
         'rengine/update/',
         RengineUpdateCheck.as_view(),
@@ -232,7 +203,6 @@ urlpatterns = [
         'search/history/',
         SearchHistoryView.as_view(),
         name='search_history'),
-    # API for fetching currently ongoing scans and upcoming scans
     path(
         'scan_status/',
         ScanStatus.as_view(),
@@ -241,11 +211,6 @@ urlpatterns = [
         'action/create/project',
         CreateProjectApi.as_view(),
         name='create_project'),
-    path(
-        'toggle-bug-bounty-mode/', 
-        ToggleBugBountyModeView.as_view(), 
-        name='toggle_bug_bounty_mode'
-    ),
 ]
 
 urlpatterns += router.urls

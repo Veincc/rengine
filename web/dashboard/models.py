@@ -20,47 +20,6 @@ class Project(models.Model):
 		return self.slug
 
 
-class OpenAiAPIKey(models.Model):
-	id = models.AutoField(primary_key=True)
-	key = models.CharField(max_length=500)
-
-	def __str__(self):
-		return self.key
-	
-
-class OllamaSettings(models.Model):
-	id = models.AutoField(primary_key=True)
-	selected_model = models.CharField(max_length=500)
-	use_ollama = models.BooleanField(default=True)
-
-	def __str__(self):
-		return self.selected_model
-
-
-class NetlasAPIKey(models.Model):
-	id = models.AutoField(primary_key=True)
-	key = models.CharField(max_length=500)
-
-	def __str__(self):
-		return self.key
-	
-
-class ChaosAPIKey(models.Model):
-	id = models.AutoField(primary_key=True)
-	key = models.CharField(max_length=500)
-
-	def __str__(self):
-		return self.key
-	
-
-class HackerOneAPIKey(models.Model):
-	id = models.AutoField(primary_key=True)
-	username = models.CharField(max_length=500)
-	key = models.CharField(max_length=500)
-
-	def __str__(self):
-		return self.username
-
 
 class InAppNotification(models.Model):
 	project = models.ForeignKey(Project, on_delete=models.CASCADE, null=True, blank=True)
@@ -89,9 +48,3 @@ class InAppNotification(models.Model):
 		return self.notification_type == 'system'
 
 
-class UserPreferences(models.Model):
-	user = models.OneToOneField(User, on_delete=models.CASCADE)
-	bug_bounty_mode = models.BooleanField(default=True)
-	
-	def __str__(self):
-		return f"{self.user.username}'s preferences"

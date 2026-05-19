@@ -40,8 +40,4 @@ urlpatterns = [
         'delete/project/<int:id>',
         views.delete_project,
         name='delete_project'),
-    path(
-        '<slug:slug>/bountyhub/list/programs',
-        views.list_bountyhub_programs,
-        name='list_bountyhub_programs'),
 ]

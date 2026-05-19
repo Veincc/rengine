@@ -64,18 +64,8 @@ Scan Findings
 					<a class="nav-link" id="pills-directories-tab" data-bs-toggle="tab" aria-expanded="false" href="#directories-tab">Directories</a>
 				</li>
 				{% endif %}
-				<li class="nav-item dropdown">
-					<a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-expanded="false">URLs&nbsp;<i class="fe-chevron-down"></i></a>
-					<ul class="dropdown-menu" style="width: 240px;">
-						<li><a class="dropdown-item" id="pills-endpoints-tab" href="#endpoints-tab" data-bs-toggle="tab" aria-expanded="false">All Endpoints</a></li>
-						{% if 'fetch_url' in history.tasks and history.used_gf_patterns %}
-						{% for key,value in matched_gf_count.items %}
-							{% if value > 0 %}
-							<li><a class="dropdown-item" id="pills-{{key}}-tab" href="#endpoints-tab" data-bs-toggle="tab" aria-expanded="false">{{key|upper}}<span class="badge-soft-danger float-end ms-1 ps-1 pe-1">{{value}}</span></a></li>
-							{% endif %}
-						{% endfor %}
-						{% endif %}
-					</ul>
+				<li class="nav-item">
+					<a class="nav-link" id="pills-endpoints-tab" data-bs-toggle="tab" aria-expanded="false" href="#endpoints-tab">URLs</a>
 				</li>
 				{% if total_vulnerability_count > 0 %}
 				<li class="nav-item">
@@ -1398,7 +1388,7 @@ Scan Findings
 {# search suggestions scripts #}
 <script src="{% static 'startScan/js/subdomains-suggestions.js' %}"></script>
 <script src="{% static 'startScan/js/endpoint-datatables-suggestions.js' %}"></script>
-<script src="{% static 'custom/subdomain_datatable.js' %}"></script>
+<script src="{% static 'custom/subdomain_datatable.js' %}?v=20260519"></script>
 
 {% if total_vulnerability_count > 0 %}
 <script src="{% static 'startScan/js/vulnerability-datatables-suggestions.js' %}"></script>
@@ -1710,12 +1700,7 @@ $(document).ready(function() {
 							// if (cve_cwe_badge != "") {
 							// 	cve_cwe_badge
 							// }
-							{% if user_preferences.bug_bounty_mode %}
-								hackerone_report = row['hackerone_report_id'] ? `<div><a class="badge badge-soft-danger mt-1 me-1" href="https://hackerone.com/reports/${row['hackerone_report_id']}" target="_blank">Reported to hackerone</a></div>` : "";
-							{% else %}
-								hackerone_report = "";
-							{% endif %}
-							return `<b class="text-${color}">` + data + `</b>` + cvss_metrics_badge + cve_cwe_badge + tags + hackerone_report;
+							return `<b class="text-${color}">` + data + `</b>` + cvss_metrics_badge + cve_cwe_badge + tags;
 						},
 						"targets": 3,
 					},
@@ -1784,10 +1769,6 @@ $(document).ready(function() {
 								<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-more-horizontal"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
 								</a>
 								<div class="dropdown-menu" style="">
-								<a class="dropdown-item" href="javascript:fetch_gpt_vuln_details(${row['id']}, '${row['name']}');">Fetch GPT Vulnerability Details</a>
-								{% if user_preferences.bug_bounty_mode %}
-									<a class="dropdown-item" href="javascript:report_hackerone(${row['id']}, '${row['severity']}');">Report to Hackerone</a>
-								{% endif %}
 								<a class="text-danger dropdown-item" href="javascript:delete_vulnerability(${row['id']});">Delete Vulnerability</a>
 								</div>
 								</div>`;
@@ -2179,14 +2160,6 @@ $(document).ready(function() {
 		get_endpoints(project='{{current_project.slug}}', scan_history={{scan_history_id}}, null, gf_tags=null);
 	});
 
-	{% if 'fetch_url' in history.tasks and history.used_gf_patterns %}
-		{% for pattern in history.used_gf_patterns|split:"," %}
-			$("#pills-{{pattern}}-tab").click(function() {
-				get_endpoints(project='{{current_project.slug}}', scan_history={{scan_history_id}}, domain_id=null, gf_tags='{{pattern}}');
-			});
-		{% endfor %}
-	{% endif %}
-
 	$("#pills-subdomain-tab").click(function() {
 		// prevent table loading twice
 		// https://datatables.net/manual/tech-notes/3
@@ -2223,12 +2196,12 @@ $(document).ready(function() {
 			"columnDefs": [
 				{ "orderable": false, "targets": [2, 3, 6, 7, 9]},
 				{
-					"targets": [ 2, 3, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 25, 26, 27, 28],
+					"targets": [ 2, 3, 14, 15, 16, 17, 18, 19, 20, 25, 26],
 					"visible": false,
 					"searchable": false,
 				},
 				{
-					"targets": [ 11, 13, 21, 22, 23 ],
+					"targets": [ 11, 12, 13, 21, 22, 23 ],
 					"visible": false,
 					"searchable": true,
 				},
@@ -2246,7 +2219,6 @@ $(document).ready(function() {
 							var interesting_badge = '';
 							var content_type = '';
 							var web_server = '';
-							var waf_badge = '';
 							if (row['technologies']){
 								tech_badge = '<div>' + parse_technology(row['technologies'], "primary", scan_id={{scan_history_id}}, domain_id=null) + '</div>';
 							}
@@ -2277,15 +2249,6 @@ $(document).ready(function() {
 							endpoint_count_badge = '';
 							if (row['endpoint_count']) {
 								endpoint_count_badge = `<span class="pl-2 pr-2 me-1 badge badge-soft-primary badge-link bs-tooltip" title="Endpoints" onclick="get_endpoint_modal('{{current_project.slug}}', {{history.id}}, ${row['id']}, '${row['name']}')">${row['endpoint_count']} <i class=" fas fa-link"></i></span>`;
-							}
-
-							if(row['waf'].length){
-								waf_badge = `<div><span class="pl-2 pr-2 my-1 badge badge-soft-danger" bs-tooltip" title="WAF Detected by wafw00f!""><i class="fe-cloud-lightning mx-1"></i>WAF Detected</span>`;
-								for (var waf in row['waf']) {
-									var waf_object = row['waf'][waf];
-									waf_badge += `<span class="mx-1 my-1 badge badge-soft-danger" bs-tooltip" title="WAF Manufacturer: ${waf_object.manufacturer}">${waf_object.name}</span>`;
-								}
-								waf_badge += `</div>`;
 							}
 
 							vuln_count_badge = '';
@@ -2321,11 +2284,11 @@ $(document).ready(function() {
 							if (row['http_url']) {
 								if (row['cname']) {
 									cname_badge = `<div><span class="text-dark">CNAME<br><span class="text-warning"> ❯ </span>` + row['cname'].replace(',', '<br><span class="text-warning"> ❯ </span>') + `</div>`;
-									return badges + `<div class="clipboard copy-txt"><a href="`+row['http_url']+`" class="text-primary" target="_blank"><span id='subdomain-${row['id']}'>` + data  +`${copy_icon} </span></a>`+ `</div>` + cname_badge + waf_badge  + end_vuln_badge + tech_badge + todo_badge;
+									return badges + `<div class="clipboard copy-txt"><a href="`+row['http_url']+`" class="text-primary" target="_blank"><span id='subdomain-${row['id']}'>` + data  +`${copy_icon} </span></a>`+ `</div>` + cname_badge + end_vuln_badge + tech_badge + todo_badge;
 								}
-								return badges + `<div class="clipboard copy-txt"><a href="`+row['http_url']+`" class="text-primary" target="_blank"><span id='subdomain-${row['id']}'>` + data + `${copy_icon} </span></a>` + `</div>` + waf_badge + end_vuln_badge + tech_badge + todo_badge;
+								return badges + `<div class="clipboard copy-txt"><a href="`+row['http_url']+`" class="text-primary" target="_blank"><span id='subdomain-${row['id']}'>` + data + `${copy_icon} </span></a>` + `</div>` + end_vuln_badge + tech_badge + todo_badge;
 							}
-							return badges + `<div class="clipboard copy-txt"><a href="https://`+data+`" class="text-primary" target="_blank"><span id='subdomain-${row['id']}'>` + data + `${copy_icon} </span></a>` + `</div>` + waf_badge + end_vuln_badge + tech_badge + todo_badge;
+							return badges + `<div class="clipboard copy-txt"><a href="https://`+data+`" class="text-primary" target="_blank"><span id='subdomain-${row['id']}'>` + data + `${copy_icon} </span></a>` + `</div>` + end_vuln_badge + tech_badge + todo_badge;
 						},
 						"targets": 1
 					},
@@ -2441,7 +2404,6 @@ $(document).ready(function() {
 							<button class="btn btn-primary me-1 dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><i class="mdi mdi-dots-horizontal"></i></button>
 							<div class="dropdown-menu dropdown-menu-end">
 							<a class="dropdown-item" href="#" onclick="mark_important_subdomain(this, ${row['id']})" id="${row['id']}"><i class="mdi mdi-alert-rhombus-outline me-2 text-muted font-18 vertical-middle"></i>Mark Important Subdomain</a>
-							<a class="dropdown-item" href="#" onclick="detect_subdomain_cms('${cms_detector_http_url}', ${row['http_status']})"><i class="fe-grid me-2 text-muted font-18 vertical-middle"></i>Detect CMS</a>
 							<a class="text-danger dropdown-item btn-delete-subdomain" href="#" id="${row['id']}"><i class="text-danger mdi mdi-delete-forever-outline me-2 font-18 vertical-middle"></i>Delete Subdomain</a>
 							</div>
 							</div>

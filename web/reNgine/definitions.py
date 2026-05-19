@@ -18,15 +18,13 @@ EMAIL_REGEX = re.compile(r'[\w\.-]+@[\w\.-]+')
 ###############################################################################
 
 ALL = 'all'
-AMASS_WORDLIST = 'amass_wordlist'
 AUTO_CALIBRATION = 'auto_calibration'
 CUSTOM_HEADERS = 'custom_headers'
 CUSTOM_HEADER = 'custom_header'
-FETCH_GPT_REPORT = 'fetch_gpt_report'
+FINGERPRINT = 'fingerprint'
 RUN_NUCLEI = 'run_nuclei'
-RUN_CRLFUZZ = 'run_crlfuzz'
-RUN_DALFOX = 'run_dalfox'
-RUN_S3SCANNER = 'run_s3scanner'
+RUN_WHATWEB = 'run_whatweb'
+RUN_CMSEEK = 'run_cmseek'
 DIR_FILE_FUZZ = 'dir_file_fuzz'
 FOLLOW_REDIRECT = 'follow_redirect'
 EXTENSIONS = 'extensions'
@@ -34,7 +32,6 @@ EXCLUDED_SUBDOMAINS = 'exclude_subdomains'
 EXCLUDE_EXTENSIONS = 'exclude_extensions'
 EXCLUDE_TEXT = 'exclude_text'
 FETCH_URL = 'fetch_url'
-GF_PATTERNS = 'gf_patterns'
 HTTP_CRAWL = 'http_crawl'
 IGNORE_FILE_EXTENSION = 'ignore_file_extensions'
 INTENSITY = 'intensity'
@@ -71,26 +68,17 @@ STOP_ON_ERROR = 'stop_on_error'
 ENABLE_HTTP_CRAWL = 'enable_http_crawl'
 THREADS = 'threads'
 TIMEOUT = 'timeout'
-USE_AMASS_CONFIG = 'use_amass_config'
 USE_NAABU_CONFIG = 'use_naabu_config'
 USE_NUCLEI_CONFIG = 'use_nuclei_config'
-USE_SUBFINDER_CONFIG = 'use_subfinder_config'
 USES_TOOLS = 'uses_tools'
 VULNERABILITY_SCAN = 'vulnerability_scan'
-WAF_DETECTION = 'waf_detection'
 WORDLIST = 'wordlist_name'
 REMOVE_DUPLICATE_ENDPOINTS = 'remove_duplicate_endpoints'
 DUPLICATE_REMOVAL_FIELDS = 'duplicate_fields'
-DALFOX = 'dalfox'
-S3SCANNER = 's3scanner'
 NUCLEI = 'nuclei'
 NMAP = 'nmap'
-CRLFUZZ = 'crlfuzz'
-WAF_EVASION = 'waf_evasion'
-BLIND_XSS_SERVER = 'blind_xss_server'
 USER_AGENT = 'user_agent'
 DELAY = 'delay'
-PROVIDERS = 'providers'
 
 ###############################################################################
 # Scan DEFAULTS
@@ -186,10 +174,10 @@ OSINT_DEFAULT_CONFIG = {
 }
 
 # subdomain scan
-SUBDOMAIN_SCAN_DEFAULT_TOOLS = ['subfinder', 'ctfr', 'sublist3r', 'tlsx']
+SUBDOMAIN_SCAN_DEFAULT_TOOLS = ['sublist3r', 'oneforall']
 
 # endpoints scan
-ENDPOINT_SCAN_DEFAULT_TOOLS = ['gospider']
+ENDPOINT_SCAN_DEFAULT_TOOLS = ['katana']
 ENDPOINT_SCAN_DEFAULT_DUPLICATE_FIELDS = ['content_length', 'page_title']
 
 
@@ -382,46 +370,9 @@ DEFAULT_IGNORE_FILE_EXTENSIONS = [
     'mp3',
 ]
 
-DEFAULT_GF_PATTERNS = [
-    'debug_logic',
-    'idor',
-    'interestingEXT',
-    'interestingparams',
-    'interestingsubs',
-    'lfi',
-    'rce',
-    'redirect',
-    'sqli',
-    'ssrf',
-    'ssti',
-    'xss'
-]
-
 
 # Default Dir File Fuzz Params
-DEFAULT_DIR_FILE_FUZZ_EXTENSIONS =  [
-    '.html',
-    '.php',
-    '.git',
-    '.yaml',
-    '.conf',
-    '.cnf',
-    '.config',
-    '.gz',
-    '.env',
-    '.log',
-    '.db',
-    '.mysql',
-    '.bak',
-    '.asp',
-    '.aspx',
-    '.txt',
-    '.conf',
-    '.sql',
-    '.json',
-    '.yml',
-    '.pdf',
-]
+DEFAULT_DIR_FILE_FUZZ_EXTENSIONS = []
 
 # Default Excluded Paths during Initate Scan
 # Mostly static files and directories
@@ -453,103 +404,6 @@ PERM_INITATE_SCANS_SUBSCANS = 'initiate_scans_subscans'
 FOUR_OH_FOUR_URL = '/404/'
 
 
-###############################################################################
-# OLLAMA DEFINITIONS
-###############################################################################
-OLLAMA_INSTANCE = 'http://ollama:11434'
-
-DEFAULT_GPT_MODELS = [
-    {
-        'name': 'gpt-3',
-        'model': 'gpt-3',
-        'modified_at': '',
-        'details': {
-            'family': 'GPT',
-            'parameter_size': '~175B',
-        }
-    },
-    {
-        'name': 'gpt-3.5-turbo',
-        'model': 'gpt-3.5-turbo',
-        'modified_at': '',
-        'details': {
-            'family': 'GPT',
-            'parameter_size': '~7B',
-        }
-    },
-    {
-        'name': 'gpt-4',
-        'model': 'gpt-4',
-        'modified_at': '',
-        'details': {
-            'family': 'GPT',
-            'parameter_size': '~1.7T',
-        }
-    },
-    {
-        'name': 'gpt-4-turbo',
-        'model': 'gpt-4',
-        'modified_at': '',
-        'details': {
-            'family': 'GPT',
-            'parameter_size': '~1.7T',
-        }
-    }
-]
-
-
-
-# GPT Vulnerability Report Generator
-VULNERABILITY_DESCRIPTION_SYSTEM_MESSAGE = """
-You are an expert penetration tester who has just completed a comprehensive security assessment. Based on the provided vulnerability title, vulnerable URL, and vulnerability description, your task is to generate a detailed, technical penetration testing report in plain text format.
-Your task is to generate a detailed, technical penetration testing report. This report should offer an in-depth analysis of the discovered vulnerabilities, adhering to industry best practices and standards.
-
-The output should adhere to the following structure:
-
-Description:
-A comprehensive explanation of the vulnerability, including: Detailed technical analysis, Associated CVE IDs (if any), Related known vulnerabilities, Exploitation methods
-
-Impact:
-A thorough assessment of the vulnerability's potential impact on web applications, including: Data confidentiality breaches, System integrity compromises, Service availability disruptions, Potential for further exploitation
-
-Remediation:
-A prioritized list of specific, actionable steps to address the vulnerability, such as: Code modifications, Configuration changes, Security patch applications, Implementation of security controls
-
-References:
-Relevant, authoritative sources supporting your analysis, such as: Official CVE database entries, Vendor security advisories, Respected security research publications, Applicable industry standards or guidelines
-
-
-Ensure that:
-1. Each section (Description, Impact, Remediation, References) is separated by ONLY ONE blank line and no multiple new lines. The content must be immediately after the section title.
-2. Do not make title as bold, italic or underline. It must be Title ending with a colon. Example: Description:
-3. All URLs in the 'references' section begin with 'http://' or 'https://'.
-4. Remediation steps should be specific and actionable and should not contain any ambiguous or general recommendations.
-5. Refrain from including any personal opinions or subjective assessments in your report.
-"""
-
-
-ATTACK_SUGGESTION_GPT_SYSTEM_PROMPT = """
-    You are a highly skilled penetration tester who has recently completed a reconnaissance on a target.
-    As a penetration tester, you've conducted a thorough reconnaissance on a specific subdomain.
-    Based on the reconnaissance you will be given with a
-        - Subdomain Name
-        - Subdomain Page Title
-        - Open Ports if any detected
-        - HTTP Status
-        - Technologies Detected
-        - Content Type
-        - Web Server
-        - Page Content Length
-    I'm seeking insights into potential technical web application attacks that could be executed on this subdomain, along with explanations for why these attacks are feasible given the discovered information.
-    Please provide a detailed list of these attack types and their underlying technical rationales on every attacks you suggested.
-    Also suggest if any CVE ID, known exploits, existing vulnerabilities, any news articles URL related to the information provided to you.
-"""
-
-
-# OSINT GooFuzz Path
-GOFUZZ_EXEC_PATH = '/usr/src/github/goofuzz/GooFuzz'
-
-
 # In App Notification Definitions
 SYSTEM_LEVEL_NOTIFICATION = 'system'
 PROJECT_LEVEL_NOTIFICATION = 'project'
@@ -563,6 +417,3 @@ NOTIFICATION_STATUS_TYPES = (
     ('warning', 'Warning'),
     ('error', 'Error'),
 )
-
-# Bountyhub Definitions
-HACKERONE_ALLOWED_ASSET_TYPES = ["WILDCARD", "DOMAIN", "IP_ADDRESS", "URL"]

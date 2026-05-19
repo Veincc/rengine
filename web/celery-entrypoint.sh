@@ -52,14 +52,8 @@ Package: firefox
 Pin: version 1:1snap1-0ubuntu2
 Pin-Priority: -1
 ' | tee /etc/apt/preferences.d/mozilla-firefox
-apt update
-apt install firefox -y
-
-# Temporary fix for whatportis bug - See https://github.com/yogeshojha/rengine/issues/984
-sed -i 's/purge()/truncate()/g' /usr/local/lib/python3.10/dist-packages/whatportis/cli.py
-
-# update whatportis
-yes | whatportis --update
+apt update -qq
+apt install -y -qq firefox
 
 # clone dirsearch default wordlist
 if [ ! -d "/usr/src/wordlist" ]
@@ -68,73 +62,44 @@ then
   mkdir /usr/src/wordlist
 fi
 
-if [ ! -f "/usr/src/wordlist/" ]
+if [ ! -f "/usr/src/wordlist/dicc.txt" ]
 then
   echo "Downloading Default Directory Bruteforce Wordlist"
-  wget https://raw.githubusercontent.com/maurosoria/dirsearch/master/db/dicc.txt -O /usr/src/wordlist/dicc.txt
+  wget -q https://raw.githubusercontent.com/maurosoria/dirsearch/master/db/dicc.txt -O /usr/src/wordlist/dicc.txt
 fi
-
-# check if default wordlist for amass exists
-if [ ! -f /usr/src/wordlist/deepmagic.com-prefixes-top50000.txt ];
-then
-  echo "Downloading Deepmagic top 50000 Wordlist"
-  wget https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/DNS/deepmagic.com-prefixes-top50000.txt -O /usr/src/wordlist/deepmagic.com-prefixes-top50000.txt
-fi
-
-# clone Sublist3r
-if [ ! -d "/usr/src/github/Sublist3r" ]
-then
-  echo "Cloning Sublist3r"
-  git clone https://github.com/aboul3la/Sublist3r /usr/src/github/Sublist3r
-fi
-python3 -m pip install -r /usr/src/github/Sublist3r/requirements.txt
-
-# clone OneForAll
-if [ ! -d "/usr/src/github/OneForAll" ]
-then
-  echo "Cloning OneForAll"
-  git clone https://github.com/shmilylty/OneForAll /usr/src/github/OneForAll
-fi
-python3 -m pip install -r /usr/src/github/OneForAll/requirements.txt
 
 # clone eyewitness
 if [ ! -d "/usr/src/github/EyeWitness" ]
 then
   echo "Cloning EyeWitness"
-  git clone https://github.com/FortyNorthSecurity/EyeWitness /usr/src/github/EyeWitness
-  # pip install -r /usr/src/github/Eyewitness/requirements.txt
+  git clone -q https://github.com/FortyNorthSecurity/EyeWitness /usr/src/github/EyeWitness
 fi
-
-# clone theHarvester
-if [ ! -d "/usr/src/github/theHarvester" ]
-then
-  echo "Cloning theHarvester"
-  git clone https://github.com/laramies/theHarvester /usr/src/github/theHarvester
-fi
-python3 -m pip install -r /usr/src/github/theHarvester/requirements/base.txt
+pip install -q psutil fuzzywuzzy selenium pyvirtualdisplay
 
 # clone vulscan
 if [ ! -d "/usr/src/github/scipag_vulscan" ]
 then
   echo "Cloning Nmap Vulscan script"
-  git clone https://github.com/scipag/vulscan /usr/src/github/scipag_vulscan
+  git clone -q https://github.com/scipag/vulscan /usr/src/github/scipag_vulscan
   echo "Symlinking to nmap script dir"
   ln -s /usr/src/github/scipag_vulscan /usr/share/nmap/scripts/vulscan
-  echo "Usage in reNgine, set vulscan/vulscan.nse in nmap_script scanEngine port_scan config parameter"
 fi
 
-# install h8mail
-python3 -m pip install h8mail
-
-# install gf patterns
-if [ ! -d "/root/Gf-Patterns" ];
+# install WhatWeb
+if [ ! -d "/usr/src/github/WhatWeb" ]
 then
-  echo "Installing GF Patterns"
-  mkdir ~/.gf
-  cp -r $GOPATH/src/github.com/tomnomnom/gf/examples/*.json ~/.gf
-  git clone https://github.com/1ndianl33t/Gf-Patterns ~/Gf-Patterns
-  mv ~/Gf-Patterns/*.json ~/.gf
+  echo "Cloning WhatWeb"
+  git clone -q https://github.com/urbanadventurer/WhatWeb /usr/src/github/WhatWeb
 fi
+cd /usr/src/github/WhatWeb && gem install bundler -N && bundle install
+
+# clone CMSeeK
+if [ ! -d "/usr/src/github/CMSeeK" ]
+then
+  echo "Cloning CMSeeK"
+  git clone -q https://github.com/Tuhinshubhra/CMSeeK /usr/src/github/CMSeeK
+fi
+pip install -q -r /usr/src/github/CMSeeK/requirements.txt
 
 # store scan_results
 if [ ! -d "/usr/src/scan_results" ]
@@ -142,56 +107,12 @@ then
   mkdir /usr/src/scan_results
 fi
 
-# test tools, required for configuration
-naabu && subfinder && amass
+# test tools
+naabu
 nuclei
 
-if [ ! -d "/root/nuclei-templates/geeknik_nuclei_templates" ];
-then
-  echo "Installing Geeknik Nuclei templates"
-  git clone https://github.com/geeknik/the-nuclei-templates.git ~/nuclei-templates/geeknik_nuclei_templates
-else
-  echo "Removing old Geeknik Nuclei templates and updating new one"
-  rm -rf ~/nuclei-templates/geeknik_nuclei_templates
-  git clone https://github.com/geeknik/the-nuclei-templates.git ~/nuclei-templates/geeknik_nuclei_templates
-fi
-
-if [ ! -f ~/nuclei-templates/ssrf_nagli.yaml ];
-then
-  echo "Downloading ssrf_nagli for Nuclei"
-  wget https://raw.githubusercontent.com/NagliNagli/BountyTricks/main/ssrf.yaml -O ~/nuclei-templates/ssrf_nagli.yaml
-fi
-
-if [ ! -d "/usr/src/github/CMSeeK" ]
-then
-  echo "Cloning CMSeeK"
-  git clone https://github.com/Tuhinshubhra/CMSeeK /usr/src/github/CMSeeK
-  pip install -r /usr/src/github/CMSeeK/requirements.txt
-fi
-
-# clone ctfr
-if [ ! -d "/usr/src/github/ctfr" ]
-then
-  echo "Cloning CTFR"
-  git clone https://github.com/UnaPibaGeek/ctfr /usr/src/github/ctfr
-fi
-
-# clone gooFuzz
-if [ ! -d "/usr/src/github/goofuzz" ]
-then
-  echo "Cloning GooFuzz"
-  git clone https://github.com/m3n0sd0n4ld/GooFuzz.git /usr/src/github/goofuzz
-  chmod +x /usr/src/github/goofuzz/GooFuzz
-fi
-
-# httpx seems to have issue, use alias instead!!!
+# httpx alias
 echo 'alias httpx="/go/bin/httpx"' >> ~/.bashrc
-
-# TEMPORARY FIX, httpcore is causing issues with celery, removing it as temp fix
-#python3 -m pip uninstall -y httpcore
-
-# TEMPORARY FIX FOR langchain
-pip install tenacity==8.2.2
 
 loglevel='info'
 if [ "$DEBUG" == "1" ]; then
@@ -240,20 +161,12 @@ workers=(
     "send_notif_queue:10:send_notif_worker"
     "send_task_notif_queue:10:send_task_notif_worker"
     "send_file_to_discord_queue:5:send_file_to_discord_worker"
-    "send_hackerone_report_queue:5:send_hackerone_report_worker"
     "parse_nmap_results_queue:10:parse_nmap_results_worker"
     "geo_localize_queue:20:geo_localize_worker"
     "query_whois_queue:10:query_whois_worker"
     "remove_duplicate_endpoints_queue:30:remove_duplicate_endpoints_worker"
     "run_command_queue:50:run_command_worker"
-    "query_reverse_whois_queue:10:query_reverse_whois_worker"
-    "query_ip_history_queue:10:query_ip_history_worker"
-    "llm_queue:30:llm_worker"
-    "dorking_queue:10:dorking_worker"
-    "osint_discovery_queue:10:osint_discovery_worker"
-    "h8mail_queue:10:h8mail_worker"
-    "theHarvester_queue:10:theHarvester_worker"
-    "send_scan_notif_queue:10:send_scan_notif_worker"
+    "fingerprint_queue:10:fingerprint_worker"
 )
 
 for worker in "${workers[@]}"; do

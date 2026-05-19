@@ -2,7 +2,7 @@
 {% load static %}
 {% load custom_tags %}
 {% block title %}
-Settings, API Keys & Tool Settings
+Tool Settings
 {% endblock title %}
 
 {% block custom_js_css_link %}
@@ -10,73 +10,15 @@ Settings, API Keys & Tool Settings
 
 {% block breadcrumb_title %}
 <li class="breadcrumb-item"><a href="#">Settings</a></li>
-<li class="breadcrumb-item active">Tool Specific Settings</li>
+<li class="breadcrumb-item active">Tool Settings</li>
 {% endblock breadcrumb_title %}
 
 {% block page_title %}
-Settings, API Keys & Tool Settings
+Tool Settings
 {% endblock page_title %}
 
 {% block main_content %}
 <div class="row">
-  <div class="col-xl-6 col-md-12 col-sm-12 col-12 mb-2">
-    <div class="card">
-      <div class="card-body">
-        <h4 class="header-title">GF Patterns</h4>
-        <p>
-          This section lets you upload custom gf patterns. You can find more information about the <a href="https://github.com/tomnomnom/gf" class="text-primary">GF Tool here. <i class="fe-external-link"></i></a>
-          <br>
-          <span class="text-danger">Please note that only json files are supported and the name of the pattern will be the filename.</span>
-          If the pattern name is <span class="badge bg-primary m-1">remote-code-exec.json</span>, the pattern name is <span class="badge bg-primary m-1">remote-code-exec</span> and this has to be used this in YAML configuration.</span>
-        </p>
-        <h4 class="header-title">Currently available GF patterns</h4>
-        {% for pattern in gf_patterns %}
-        {% if not forloop.first %}
-        <span class="btn btn-soft-primary rounded-pill btn-sm m-1 bs-tooltip" data-toggle="tooltip" data-placement="top" title="Click to View Pattern" onclick="load_gf_template('{{pattern}}')">{{pattern}}</span>
-        {% endif %}
-        {% endfor %}
-        <form method="post" enctype="multipart/form-data">
-          {% csrf_token %}
-          <div class="mb-3 mb-xl-0">
-            <label for="gfFileUpload" class="form-label">Upload GF Pattern JSON</label>
-            <small class="text-muted">(Multiple files can be uploaded.)</small>
-            <input class="form-control" type="file" id="gfFileUpload" accept=".json" name="gfFileUpload[]" multiple>
-          </div>
-          <input type="submit" class="btn btn-primary mt-3 float-end" value="Upload">
-        </form>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-body">
-        <h4 class="header-title">Subfinder</h4>
-        <p>
-          This section lets you modify <a href="https://github.com/projectdiscovery/subfinder" class="text-primary" target="_blank">Subfinder</a> config file. You can find more information about the <a href="https://github.com/projectdiscovery/subfinder#:~:text=An%20example%20config%20file%20-" class="text-primary" target="_blank">Subfinder config here.</a><br>
-          <span class="text-danger">Please note that only YAML config is supported.</span>
-        </p>
-        <form method="post" enctype="multipart/form-data" id="subfinder-config-form">
-          {% csrf_token %}
-          <h4 class="header-title">Current Subfinder Configuration</h4>
-          <label for="subfinder_config_text_area">Double click the configuration to edit.</label>
-          <textarea class="form-control" id="subfinder_config_text_area" spellcheck="false" readonly="true" name="subfinder_config_text_area"></textarea>
-        </form>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-body">
-        <h4 class="header-title">Amass</h4>
-        <p>
-          This section lets you modify <a href="https://github.com/owasp-amass/amass/" class="text-primary" target="_blank">Amass</a> config file. You can find more information about the <a href="https://github.com/owasp-amass/amass/blob/master/examples/config.yaml" class="text-primary" target="_blank">Amass config here.</a><br>
-          <span class="text-danger">Please note that only YAML config is supported.</span>
-        </p>
-        <form method="post" enctype="multipart/form-data" id="amass-config-form">
-          {% csrf_token %}
-          <h4 class="header-title">Current Amass Configuration</h4>
-          <label for="amass_config_text_area">Double click the configuration to edit.</label>
-          <textarea class="form-control" id="amass_config_text_area" spellcheck="false" readonly="true" name="amass_config_text_area"></textarea>
-        </form>
-      </div>
-    </div>
-  </div>
   <div class="col-xl-6 col-md-12 col-sm-12 col-12 mb-2">
     <div class="card">
       <div class="card-body">
@@ -134,6 +76,8 @@ Settings, API Keys & Tool Settings
         </div>
       </div>
     </div>
+  </div>
+  <div class="col-xl-6 col-md-12 col-sm-12 col-12 mb-2">
     <div class="card">
       <div class="card-body">
         <h4 class="header-title">Naabu</h4>
@@ -146,22 +90,6 @@ Settings, API Keys & Tool Settings
           <h4 class="header-title">Current Naabu Configuration</h4>
           <label for="naabu_config_text_area">Double click the configuration to edit.</label>
           <textarea class="form-control" id="naabu_config_text_area" spellcheck="false" readonly="true" name="naabu_config_text_area"></textarea>
-        </form>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-body">
-        <h4 class="header-title">theHarvester</h4>
-        <p>
-          This section lets you modify <a href="https://github.com/laramies/theHarvester" class="text-primary" target="_blank">the Harvester</a> config file. You can find more information about the <a href="https://github.com/laramies/theHarvester/blob/master/theHarvester/data/api-keys.yaml" class="text-primary" target="_blank">the Harvester config here.</a><br>
-          <br>
-          <span class="text-danger">Please note that only YAML config is supported.</span>
-        </p>
-        <form method="post" enctype="multipart/form-data" id="theharvester-config-form">
-          {% csrf_token %}
-          <h4 class="header-title">Current theHarvester Configuration</h4>
-          <label for="naabu_config_text_area">Double click the configuration to edit.</label>
-          <textarea class="form-control" id="theharvester_config_text_area" spellcheck="false" readonly="true" name="theharvester_config_text_area"></textarea>
         </form>
       </div>
     </div>

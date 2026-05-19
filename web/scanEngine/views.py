@@ -196,25 +196,7 @@ def tool_specific_settings(request, slug):
     # check for incoming form requests
     if request.method == "POST":
 
-        if 'gfFileUpload[]' in request.FILES:
-            gf_files = request.FILES.getlist('gfFileUpload[]')
-            upload_count = 0
-            for gf_file in gf_files:
-                original_filename = gf_file.name if isinstance(gf_file.name, str) else gf_file.name.decode('utf-8')
-                # remove special chars from filename, that could possibly do directory traversal or XSS
-                original_filename = re.sub(r'[\\/*?:"<>|]',"", original_filename)
-                file_extension = original_filename.split('.')[len(gf_file.name.split('.'))-1]
-                if file_extension == 'json':
-                    base_filename = os.path.splitext(original_filename)[0]
-                    file_path = '/root/.gf/' + base_filename + '.json'
-                    file = open(file_path, "w")
-                    file.write(gf_file.read().decode("utf-8"))
-                    file.close()
-                    upload_count += 1
-            messages.add_message(request, messages.INFO, f'{upload_count} GF files successfully uploaded')
-            return http.HttpResponseRedirect(reverse('tool_settings', kwargs={'slug': slug}))
-
-        elif 'nucleiFileUpload[]' in request.FILES:
+        if 'nucleiFileUpload[]' in request.FILES:
             nuclei_files = request.FILES.getlist('nucleiFileUpload[]')
             upload_count = 0
             for nuclei_file in nuclei_files:
@@ -239,37 +221,17 @@ def tool_specific_settings(request, slug):
             messages.add_message(request, messages.INFO, 'Nuclei config updated!')
             return http.HttpResponseRedirect(reverse('tool_settings', kwargs={'slug': slug}))
 
-        elif 'subfinder_config_text_area' in request.POST:
-            with open('/root/.config/subfinder/config.yaml', "w") as fhandle:
-                fhandle.write(request.POST.get('subfinder_config_text_area'))
-            messages.add_message(request, messages.INFO, 'Subfinder config updated!')
-            return http.HttpResponseRedirect(reverse('tool_settings', kwargs={'slug': slug}))
-
         elif 'naabu_config_text_area' in request.POST:
             with open('/root/.config/naabu/config.yaml', "w") as fhandle:
                 fhandle.write(request.POST.get('naabu_config_text_area'))
             messages.add_message(request, messages.INFO, 'Naabu config updated!')
             return http.HttpResponseRedirect(reverse('tool_settings', kwargs={'slug': slug}))
 
-        elif 'amass_config_text_area' in request.POST:
-            with open('/root/.config/amass.ini', "w") as fhandle:
-                fhandle.write(request.POST.get('amass_config_text_area'))
-            messages.add_message(request, messages.INFO, 'Amass config updated!')
-            return http.HttpResponseRedirect(reverse('tool_settings', kwargs={'slug': slug}))
-
-        elif 'theharvester_config_text_area' in request.POST:
-            with open('/usr/src/github/theHarvester/api-keys.yaml', "w") as fhandle:
-                fhandle.write(request.POST.get('theharvester_config_text_area'))
-            messages.add_message(request, messages.INFO, 'theHarvester config updated!')
-            return http.HttpResponseRedirect(reverse('tool_settings', kwargs={'slug': slug}))
-
     context['settings_nav_active'] = 'active'
     context['tool_settings_li'] = 'active'
     context['settings_ul_show'] = 'show'
-    gf_list = (subprocess.check_output(['gf', '-list'])).decode("utf-8")
     nuclei_custom_pattern = [f for f in glob.glob("/root/nuclei-templates/*.yaml")]
     context['nuclei_templates'] = nuclei_custom_pattern
-    context['gf_patterns'] = sorted(gf_list.split('\n'))
     return render(request, 'scanEngine/settings/tool.html', context)
 
 
@@ -362,57 +324,6 @@ def proxy_settings(request, slug):
     return render(request, 'scanEngine/settings/proxy.html', context)
 
 
-@has_permission_decorator(PERM_MODIFY_SCAN_CONFIGURATIONS, redirect_url=FOUR_OH_FOUR_URL)
-def test_hackerone(request, slug):
-    if request.method == "POST":
-        headers = {
-            'Accept': 'application/json'
-        }
-        body = json.loads(request.body)
-        r = requests.get(
-            'https://api.hackerone.com/v1/hackers/payments/balance',
-            auth=(body['username'], body['api_key']),
-            headers = headers
-        )
-        if r.status_code == 200:
-            return http.JsonResponse({"status": 200})
-
-    return http.JsonResponse({"status": 401})
-
-
-@has_permission_decorator(PERM_MODIFY_SCAN_CONFIGURATIONS, redirect_url=FOUR_OH_FOUR_URL)
-def hackerone_settings(request, slug):
-    context = {}
-    form = HackeroneForm()
-    context['form'] = form
-
-    hackerone = None
-    if Hackerone.objects.all().exists():
-        hackerone = Hackerone.objects.all()[0]
-        form.set_value(hackerone)
-    else:
-        form.set_initial()
-
-    if request.method == "POST":
-        if hackerone:
-            form = HackeroneForm(request.POST, instance=hackerone)
-        else:
-            form = HackeroneForm(request.POST or None)
-
-        if form.is_valid():
-            form.save()
-            messages.add_message(
-                request,
-                messages.INFO,
-                'Hackerone Settings updated.')
-            return http.HttpResponseRedirect(reverse('hackerone_settings', kwargs={'slug': slug}))
-    context['settings_nav_active'] = 'active'
-    context['hackerone_settings_li'] = 'active'
-    context['settings_ul_show'] = 'show'
-
-    return render(request, 'scanEngine/settings/hackerone.html', context)
-
-
 @has_permission_decorator(PERM_MODIFY_SCAN_REPORT, redirect_url=FOUR_OH_FOUR_URL)
 def report_settings(request, slug):
     context = {}
@@ -463,104 +374,8 @@ def tool_arsenal_section(request, slug):
 
 
 @has_permission_decorator(PERM_MODIFY_SYSTEM_CONFIGURATIONS, redirect_url=FOUR_OH_FOUR_URL)
-def llm_toolkit_section(request, slug):
-    context = {}
-    list_all_models_url = f'{OLLAMA_INSTANCE}/api/tags'
-    response = requests.get(list_all_models_url)
-    all_models = []
-    selected_model = None
-    all_models = DEFAULT_GPT_MODELS.copy()
-    if response.status_code == 200:
-        models = response.json()
-        ollama_models = models.get('models')
-        date_format = "%Y-%m-%dT%H:%M:%S"
-        for model in ollama_models:
-           all_models.append({**model, 
-                'modified_at': datetime.strptime(model['modified_at'].split('.')[0], date_format),
-                'is_local': True,
-            })
-    # find selected model name from db
-    selected_model = OllamaSettings.objects.first()
-    if selected_model:
-        selected_model = {'selected_model': selected_model.selected_model}
-    else:
-        # use gpt3.5-turbo as default
-        selected_model = {'selected_model': 'gpt-3.5-turbo'}
-    for model in all_models:
-        if model['name'] == selected_model['selected_model']:
-            model['selected'] = True
-    context['installed_models'] = all_models
-    # show error message for openai key, if any gpt is selected
-    openai_key = get_open_ai_key()
-    if not openai_key and 'gpt' in selected_model['selected_model']:
-        context['openai_key_error'] = True
-    return render(request, 'scanEngine/settings/llm_toolkit.html', context)
-
-
-@has_permission_decorator(PERM_MODIFY_SYSTEM_CONFIGURATIONS, redirect_url=FOUR_OH_FOUR_URL)
 def api_vault(request, slug):
     context = {}
-    if request.method == "POST":
-        key_openai = request.POST.get('key_openai')
-        key_netlas = request.POST.get('key_netlas')
-        key_chaos = request.POST.get('key_chaos')
-        key_hackerone = request.POST.get('key_hackerone')
-        username_hackerone = request.POST.get('username_hackerone')
-
-
-        if key_openai:
-            openai_api_key = OpenAiAPIKey.objects.first()
-            if openai_api_key:
-                openai_api_key.key = key_openai
-                openai_api_key.save()
-            else:
-                OpenAiAPIKey.objects.create(key=key_openai)
-
-        if key_netlas:
-            netlas_api_key = NetlasAPIKey.objects.first()
-            if netlas_api_key:
-                netlas_api_key.key = key_netlas
-                netlas_api_key.save()
-            else:
-                NetlasAPIKey.objects.create(key=key_netlas)
-
-        if key_chaos:
-            chaos_api_key = ChaosAPIKey.objects.first()
-            if chaos_api_key:
-                chaos_api_key.key = key_chaos
-                chaos_api_key.save()
-            else:
-                ChaosAPIKey.objects.create(key=key_chaos)
-
-        if key_hackerone and username_hackerone:
-            hackerone_api_key = HackerOneAPIKey.objects.first()
-            if hackerone_api_key:
-                hackerone_api_key.username = username_hackerone
-                hackerone_api_key.key = key_hackerone
-                hackerone_api_key.save()
-            else:
-                HackerOneAPIKey.objects.create(
-                    username=username_hackerone, 
-                    key=key_hackerone
-                )
-
-    openai_key = OpenAiAPIKey.objects.first()
-    netlas_key = NetlasAPIKey.objects.first()
-    chaos_key = ChaosAPIKey.objects.first()
-    h1_key = HackerOneAPIKey.objects.first()
-    if h1_key:
-        hackerone_key = h1_key.key
-        hackerone_username = h1_key.username
-    else:
-        hackerone_key = None
-        hackerone_username = None
-
-    context['openai_key'] = openai_key
-    context['netlas_key'] = netlas_key
-    context['chaos_key'] = chaos_key
-    context['hackerone_key'] = hackerone_key
-    context['hackerone_username'] = hackerone_username
-    
     return render(request, 'scanEngine/settings/api.html', context)
 
 

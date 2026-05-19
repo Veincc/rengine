@@ -46,7 +46,7 @@ Scan Engines
             <th>Engine Name</th>
             <th class="text-center">Type</th>
             <th class="text-center">Subdomain Discovery</th>
-            <th class="text-center">WAF Detection</th>
+            <th class="text-center">Fingerprint</th>
             <th class="text-center">Screenshot</th>
             <th class="text-center">OSINT</th>
             <th class="text-center">Port Scan</th>
@@ -76,7 +76,7 @@ Scan Engines
               {%endif%}
             </td>
             <td class="text-center">
-              {% if 'waf_detection' in engine.tasks %}
+              {% if 'fingerprint' in engine.tasks %}
               {% include 'base/_items/green_tick.html' %}
               {% else %}
               {% include 'base/_items/red_cross.html' %}

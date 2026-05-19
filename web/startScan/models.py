@@ -40,7 +40,6 @@ class ScanHistory(models.Model):
 	celery_ids = ArrayField(models.CharField(max_length=100), blank=True, default=list)
 	tasks = ArrayField(models.CharField(max_length=200), null=True)
 	stop_scan_date = models.DateTimeField(null=True, blank=True)
-	used_gf_patterns = models.CharField(max_length=500, null=True, blank=True)
 	error_message = models.CharField(max_length=300, blank=True, null=True)
 	emails = models.ManyToManyField('Email', related_name='emails', blank=True)
 	employees = models.ManyToManyField('Employee', related_name='employees', blank=True)
@@ -221,7 +220,6 @@ class Subdomain(models.Model):
 	technologies = models.ManyToManyField('Technology', related_name='technologies', blank=True)
 	ip_addresses = models.ManyToManyField('IPAddress', related_name='ip_addresses', blank=True)
 	directories = models.ManyToManyField('DirectoryScan', related_name='directories', blank=True)
-	waf = models.ManyToManyField('Waf', related_name='waf', blank=True)
 	attack_surface = models.TextField(null=True, blank=True)
 
 
@@ -361,7 +359,7 @@ class SubScan(models.Model):
 			'fetch_url': 'Fetch URLs',
 			'vulnerability_scan': 'Vulnerability Scan',
 			'screenshot': 'Screenshot',
-			'waf_detection': 'Waf Detection',
+			'fingerprint': 'Fingerprint',
 			'osint': 'Open-Source Intelligence'
 		}
 		return taskmap.get(self.type, 'Unknown')
@@ -431,17 +429,6 @@ class CweId(models.Model):
 		return self.name
 
 
-class GPTVulnerabilityReport(models.Model):
-	url_path = models.CharField(max_length=2000)
-	title = models.CharField(max_length=2500)
-	description = models.TextField(null=True, blank=True)
-	impact = models.TextField(null=True, blank=True)
-	remediation = models.TextField(null=True, blank=True)
-	references = models.ManyToManyField('VulnerabilityReference', related_name='report_reference', blank=True)
-
-	def __str__(self):
-		return self.title
-
 
 class Vulnerability(models.Model):
 	id = models.AutoField(primary_key=True)
@@ -485,10 +472,8 @@ class Vulnerability(models.Model):
 	http_url = models.CharField(max_length=10000, null=True)
 	discovered_date = models.DateTimeField(null=True)
 	open_status = models.BooleanField(null=True, blank=True, default=True)
-	hackerone_report_id = models.CharField(max_length=50, null=True, blank=True)
 	request = models.TextField(blank=True, null=True)
 	response = models.TextField(blank=True, null=True)
-	is_gpt_used = models.BooleanField(null=True, blank=True, default=False)
 	# used for subscans
 	vuln_subscan_ids = models.ManyToManyField('SubScan', related_name='vuln_subscan_ids', blank=True)
 
@@ -544,21 +529,29 @@ class Command(models.Model):
 		return str(self.command)
 
 
-class Waf(models.Model):
-	id = models.AutoField(primary_key=True)
-	name = models.CharField(max_length=500)
-	manufacturer = models.CharField(max_length=500, blank=True, null=True)
-
-	def __str__(self):
-		return str(self.name)
-
-
 class Technology(models.Model):
 	id = models.AutoField(primary_key=True)
 	name = models.CharField(max_length=500, blank=True, null=True)
 
 	def __str__(self):
 		return str(self.name)
+
+
+class Fingerprint(models.Model):
+	id = models.AutoField(primary_key=True)
+	scan_history = models.ForeignKey(ScanHistory, on_delete=models.CASCADE, null=True, blank=True)
+	subdomain = models.ForeignKey(Subdomain, on_delete=models.CASCADE, null=True, blank=True, related_name='fingerprints')
+	name = models.CharField(max_length=500)
+	version = models.CharField(max_length=200, blank=True, null=True)
+	source = models.CharField(max_length=50, help_text='Tool that detected this fingerprint (whatweb, cmseek)')
+	extra_info = models.TextField(blank=True, null=True, help_text='Additional fingerprint details in JSON format')
+	created_at = models.DateTimeField(auto_now_add=True)
+
+	def __str__(self):
+		return f'{self.name} ({self.source})'
+
+	class Meta:
+		unique_together = ('subdomain', 'name', 'source')
 
 
 class CountryISO(models.Model):

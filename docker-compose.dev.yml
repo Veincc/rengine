@@ -24,14 +24,12 @@ services:
     build:
       context: ./web
     restart: always
-    entrypoint: /usr/src/app/celery-entrypoint.sh
-    # command: watchmedo auto-restart --recursive --pattern="*.py" --directory="/usr/src/app/reNgine/" -- celery -A reNgine.tasks worker --autoscale=10,0 -l INFO
+    entrypoint: /usr/src/app/celery-entrypoint-dev.sh
     volumes:
       - ./web:/usr/src/app
       - github_repos:/usr/src/github
       - wordlist:/usr/src/wordlist
       - scan_results:/usr/src/scan_results
-      - gf_patterns:/root/.gf
       - nuclei_templates:/root/nuclei-templates
       - tool_config:/root/.config
     environment:
@@ -73,7 +71,6 @@ services:
       - github_repos:/usr/src/github
       - wordlist:/usr/src/wordlist
       - scan_results:/usr/src/scan_results
-      - gf_patterns:/root/.gf
       - nuclei_templates:/root/nuclei-templates
       - tool_config:/root/.config
     networks:
@@ -100,7 +97,6 @@ services:
       - github_repos:/usr/src/github
       - wordlist:/usr/src/wordlist
       - scan_results:/usr/src/scan_results
-      - gf_patterns:/root/.gf
       - nuclei_templates:/root/nuclei-templates
       - tool_config:/root/.config
     ports:
@@ -111,22 +107,12 @@ services:
       - celery-beat
     networks:
       - rengine_network
-  ollama:
-    image: ollama/ollama
-    volumes:
-      - ollama_data:/root/.ollama
-    networks:
-      - rengine_network
-    restart: always
-
 networks:
   rengine_network:
 volumes:
   tool_config:
   postgres_data:
-  gf_patterns:
   nuclei_templates:
   github_repos:
   wordlist:
   scan_results:
-  ollama_data:
